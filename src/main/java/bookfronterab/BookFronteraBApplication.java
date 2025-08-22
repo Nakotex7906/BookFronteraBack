@@ -1,4 +1,4 @@
-package org.example.bookfronterab;
+package bookfronterab;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class BookFronteraBApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(BookFronteraBApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(BookFronteraBApplication.class, args);
+    }
 
 }
