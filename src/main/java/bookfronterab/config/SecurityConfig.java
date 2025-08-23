@@ -2,7 +2,6 @@ package bookfronterab.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -15,18 +14,31 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
     @Bean
-    SecurityFilterChain filter(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/",                // raíz
+                                "/.well-known/**",  // evita warnings del navegador/DevTools
+                                "/favicon.ico",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/api/v1", "/api/v1/" // índice de la API
+                        ).permitAll()
+                        .anyRequest().permitAll() // ajustar a authenticated() si se usa auth real
+                )
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable());
         return http.build();
     }
 
     @Bean
     CorsConfigurationSource corsConfig() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(List.of("http://localhost:5173", "https://tu-frontend.vercel.app"));
+        cfg.setAllowedOrigins(List.of("http://localhost:5173"));
         cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

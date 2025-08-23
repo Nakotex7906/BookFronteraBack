@@ -1,7 +1,6 @@
 package bookfronterab.controller;
 
 import bookfronterab.dto.ReservationDtos;
-import bookfronterab.model.Reservation;
 import bookfronterab.service.ReservationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

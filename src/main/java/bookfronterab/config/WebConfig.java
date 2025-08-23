@@ -14,7 +14,7 @@ public class WebConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/api/**") // Permite CORS en todas las rutas bajo /api/
-                        .allowedOrigins("https://tu-dominio-de-react.web.app", "http://localhost:5173") // ¡IMPORTANTE! Pon aquí la URL de tu app de React y localhost para desarrollo
+                        .allowedOrigins("http://localhost:5173") // Poner aquí la URL de tu app de React y localhost para desarrollo
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);
