@@ -18,7 +18,8 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**").disable())
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/",                // raíz
@@ -26,7 +27,8 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/api/v1", "/api/v1/" // índice de la API
+                                "/api/v1", "/api/v1/", // índice de la API
+                                "/h2-console/**"    // Consola H2
                         ).permitAll()
                         .anyRequest().permitAll() // ajustar a authenticated() si se usa auth real
                 )
