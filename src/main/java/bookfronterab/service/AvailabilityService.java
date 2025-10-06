@@ -109,4 +109,49 @@ public class AvailabilityService {
         }
     }
 
+    public bookfronterab.dto.AvailabilityGridDto getAvailabilityGrid(LocalDate date) {
+        List<bookfronterab.model.Room> rooms = roomRepo.findAll();
+        List<bookfronterab.dto.RoomDto> roomDtos = rooms.stream()
+                .map(r -> new bookfronterab.dto.RoomDto(r.getId(), r.getName(), r.getCapacity(), r.getEquipment()))
+                .toList();
+
+        List<bookfronterab.dto.TimeSlotDto> timeSlots = generateTimeSlots(9, 21, 60);
+
+        List<bookfronterab.dto.AvailabilityStatusDto> availabilityStatus = new ArrayList<>();
+        for (bookfronterab.model.Room room : rooms) {
+            for (bookfronterab.dto.TimeSlotDto slot : timeSlots) {
+                boolean isAvailable = isSlotAvailableForRoom(room, date, slot);
+                availabilityStatus.add(new bookfronterab.dto.AvailabilityStatusDto(String.valueOf(room.getId()), slot.id(), isAvailable));
+            }
+        }
+
+        return new bookfronterab.dto.AvailabilityGridDto(roomDtos, timeSlots, availabilityStatus);
+    }
+
+    public List<bookfronterab.dto.TimeSlotDto> generateTimeSlots(int startHour, int endHour, int slotDurationMinutes) {
+        List<bookfronterab.dto.TimeSlotDto> slots = new ArrayList<>();
+        java.time.LocalTime time = java.time.LocalTime.of(startHour, 0);
+        while (time.getHour() < endHour) {
+            java.time.LocalTime endTime = time.plusMinutes(slotDurationMinutes);
+            String id = String.format("%02d-%02d", time.getHour(), endTime.getHour());
+            String label = String.format("%02d:%02d - %02d:%02d", time.getHour(), time.getMinute(), endTime.getHour(), endTime.getMinute());
+            slots.add(new bookfronterab.dto.TimeSlotDto(id, label));
+            time = endTime;
+        }
+        return slots;
+    }
+
+    private boolean isSlotAvailableForRoom(bookfronterab.model.Room room, LocalDate date, bookfronterab.dto.TimeSlotDto slot) {
+        String[] hours = slot.id().split("-");
+        java.time.LocalTime startTime = java.time.LocalTime.of(Integer.parseInt(hours[0]), 0);
+        java.time.LocalTime endTime = java.time.LocalTime.of(Integer.parseInt(hours[1]), 0);
+
+        OffsetDateTime startDateTime = time.atOffset(date, startTime);
+        OffsetDateTime endDateTime = time.atOffset(date, endTime);
+
+        List<Reservation> bookings = resRepo.overlaps(room.getId(), startDateTime, endDateTime, ReservationStatus.CONFIRMED);
+        List<Blackout> outs = blackoutRepo.findByRoomIdAndEndAtAfterAndStartAtBefore(room.getId(), startDateTime, endDateTime);
+
+        return bookings.isEmpty() && outs.isEmpty();
+    }
 }

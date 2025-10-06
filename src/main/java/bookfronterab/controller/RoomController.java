@@ -24,14 +24,14 @@ public class RoomController {
     @GetMapping("/rooms")
     public List<RoomDto> listRooms() {
         return roomService.list().stream()
-                .map(r -> new RoomDto(r.getId(), r.getNombre(), r.getUbicacion(), r.getCapacidad(), r.getEquipos(), r.isActiva()))
+                .map(r -> new RoomDto(r.getId(), r.getName(), r.getCapacity(), r.getEquipment()))
                 .toList();
     }
 
     @GetMapping("/rooms/{id}")
     public RoomDto getRoom(@PathVariable Long id) {
         Room r = roomService.get(id);
-        return new RoomDto(r.getId(), r.getNombre(), r.getUbicacion(), r.getCapacidad(), r.getEquipos(), r.isActiva());
+        return new RoomDto(r.getId(), r.getName(), r.getCapacity(), r.getEquipment());
     }
 
     @GetMapping("/rooms/{id}/availability")

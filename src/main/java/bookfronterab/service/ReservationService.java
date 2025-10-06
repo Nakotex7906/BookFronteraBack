@@ -33,7 +33,7 @@ public class ReservationService {
     @Transactional
     public Reservation create(Long userId, Long roomId, OffsetDateTime startAt, OffsetDateTime endAt) {
         var room = roomRepo.findById(roomId).orElseThrow();
-        if (!room.isActiva()) throw new IllegalStateException("La sala está inactiva");
+        if (!room.isActive()) throw new IllegalStateException("La sala está inactiva");
 
         if (!startAt.isBefore(endAt)) throw new IllegalArgumentException("Rango horario inválido");
         long minutes = Duration.between(startAt, endAt).toMinutes();

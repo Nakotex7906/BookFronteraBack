@@ -22,25 +22,21 @@ public class Room {
 
     @NotBlank
     @Column(nullable = false)
-    private String nombre;
-
-    @NotBlank
-    @Column(nullable = false)
-    private String ubicacion;
+    private String name;
 
     @Min(1)
     @Column(nullable = false)
-    private Integer capacidad;
+    private Integer capacity;
 
     @ElementCollection
     @CollectionTable(name = "room_equipment", joinColumns = @JoinColumn(name = "room_id"))
-    @Column(name = "equipo")
-    private Set<String> equipos; // ej: "proyector", "pizarra"
+    @Column(name = "equipment")
+    private Set<String> equipment; // ej: "proyector", "pizarra"
 
     @Column(nullable = false)
-    private Boolean activa;
+    private Boolean active;
 
-    public boolean isActiva() {
-        return activa;
+    public boolean isActive() {
+        return active;
     }
 }
