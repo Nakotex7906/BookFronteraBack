@@ -1,0 +1,9 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create   # o update/create-drop en dev
+    defer-datasource-initialization: true  # <-- clave: data.sql corre DESPUÉS del schema
+  sql:
+    init:
+      mode: always       # asegura que data.sql se ejecute
+      platform: h2
