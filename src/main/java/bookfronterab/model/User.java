@@ -8,7 +8,7 @@ import lombok.*;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "\"users\"")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,4 +32,13 @@ public class User {
 
     @Column(nullable = false)
     private OffsetDateTime creadoEn;
+
+    // Google Calendar Tokens
+    @Column(length = 1024)
+    private String googleAccessToken;
+
+    @Column(length = 1024)
+    private String googleRefreshToken;
+
+    private OffsetDateTime googleTokenExpiryDate;
 }

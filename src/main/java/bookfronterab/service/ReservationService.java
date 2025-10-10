@@ -7,22 +7,32 @@ import bookfronterab.repo.BlackoutRepository;
 import bookfronterab.repo.OpeningHourRepository;
 import bookfronterab.repo.ReservationRepository;
 import bookfronterab.repo.RoomRepository;
+import bookfronterab.repo.UserRepository;
+import bookfronterab.service.google.GoogleCalendarService;
+import bookfronterab.service.google.GoogleOAuthService;
+import com.google.api.client.auth.oauth2.Credential;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReservationService {
 
     private final ReservationRepository repo;
     private final RoomRepository roomRepo;
     private final OpeningHourRepository openingRepo;
     private final BlackoutRepository blackoutRepo;
+    private final UserRepository userRepo;
+    private final GoogleCalendarService googleCalendarService;
+    private final GoogleOAuthService googleOAuthService;
     private final TimeService time;
 
     private static final int MIN_MINUTES = 30;
@@ -32,6 +42,7 @@ public class ReservationService {
 
     @Transactional
     public Reservation create(Long userId, Long roomId, OffsetDateTime startAt, OffsetDateTime endAt) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
         var room = roomRepo.findById(roomId).orElseThrow();
         if (!room.isActive()) throw new IllegalStateException("La sala está inactiva");
 
@@ -64,13 +75,37 @@ public class ReservationService {
 
         var res = Reservation.builder()
                 .room(room)
-                .user(User.builder().id(userId).build()) // attach por id
+                .user(user)
                 .startAt(startAt)
                 .endAt(endAt)
                 .estado(ReservationStatus.CONFIRMED)
                 .build();
-        return repo.save(res);
+        
+        Reservation savedReservation = repo.save(res);
+
+        // --- Integración con Google Calendar ---
+        tryToCreateGoogleCalendarEvent(savedReservation);
+
+        return savedReservation;
     }
+
+    private void tryToCreateGoogleCalendarEvent(Reservation reservation) {
+        if (reservation.getUser() == null || reservation.getUser().getEmail() == null) {
+            return;
+        }
+
+        try {
+            Credential credential = googleOAuthService.getCredentialForUser(reservation.getUser().getEmail());
+            if (credential != null && credential.getAccessToken() != null) {
+                log.info("Creando evento en Google Calendar para el usuario {}", reservation.getUser().getEmail());
+                googleCalendarService.createEventForReservation(reservation, credential.getAccessToken());
+            }
+        } catch (IOException e) {
+            log.error("Error al intentar crear evento en Google Calendar para el usuario {}: {}", reservation.getUser().getEmail(), e.getMessage());
+            // No relanzar la excepción para no afectar la creación de la reserva principal
+        }
+    }
+
 
     public Reservation get(Long id) { return repo.findById(id).orElseThrow(); }
 
