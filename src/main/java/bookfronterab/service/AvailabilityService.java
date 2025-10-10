@@ -115,7 +115,7 @@ public class AvailabilityService {
                 .map(r -> new bookfronterab.dto.RoomDto(r.getId(), r.getName(), r.getCapacity(), r.getEquipment()))
                 .toList();
 
-        List<bookfronterab.dto.TimeSlotDto> timeSlots = generateTimeSlots(9, 21, 60);
+        List<bookfronterab.dto.TimeSlotDto> timeSlots = generateTimeSlots(8, 21, 60);
 
         List<bookfronterab.dto.AvailabilityStatusDto> availabilityStatus = new ArrayList<>();
         for (bookfronterab.model.Room room : rooms) {
@@ -130,13 +130,22 @@ public class AvailabilityService {
 
     public List<bookfronterab.dto.TimeSlotDto> generateTimeSlots(int startHour, int endHour, int slotDurationMinutes) {
         List<bookfronterab.dto.TimeSlotDto> slots = new ArrayList<>();
-        java.time.LocalTime time = java.time.LocalTime.of(startHour, 0);
+        java.time.LocalTime time = java.time.LocalTime.of(startHour, 30);
         while (time.getHour() < endHour) {
             java.time.LocalTime endTime = time.plusMinutes(slotDurationMinutes);
             String id = String.format("%02d-%02d", time.getHour(), endTime.getHour());
             String label = String.format("%02d:%02d - %02d:%02d", time.getHour(), time.getMinute(), endTime.getHour(), endTime.getMinute());
             slots.add(new bookfronterab.dto.TimeSlotDto(id, label));
-            time = endTime;
+
+            //Hora de almuerzo.
+            java.time.LocalTime timeLounch = java.time.LocalTime.of(13,10);
+
+            if (time.equals(timeLounch)){
+
+                time = endTime.plusMinutes(20);
+            }else{
+                time = endTime.plusMinutes(10);
+            }
         }
         return slots;
     }
