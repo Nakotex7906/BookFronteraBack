@@ -30,7 +30,7 @@ public class AvailabilityService {
     public AvailabilityDto daily(Long roomId, LocalDate date, int slotMinutes) {
         var room = roomRepo.findById(roomId).orElseThrow();
         var weekday = date.getDayOfWeek();
-
+        //revisa si la sala tiene horarios para el dia especificado de la semana
         OpeningHour oh = openingRepo.findByRoomAndWeekday(room, weekday)
                 .orElseThrow(() -> new IllegalStateException("La sala no tiene horario para " + weekday));
 
@@ -78,7 +78,7 @@ public class AvailabilityService {
             OffsetDateTime e = r.e.isAfter(close) ? close : r.e;
             if (merged.isEmpty()) { merged.add(new Range(s,e)); }
             else {
-                Range last = merged.get(merged.size()-1);
+                Range last = merged.getLast();
                 if (!s.isAfter(last.e)) { // overlap
                     merged.set(merged.size()-1, new Range(last.s, e.isAfter(last.e)? e : last.e));
                 } else {
