@@ -16,7 +16,9 @@ import java.time.OffsetDateTime;
 @Builder
 public class User {
 
-    @Id @GeneratedValue(strategy =  GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_seq")
+    @SequenceGenerator(name = "user_seq", sequenceName = "user_id_seq", allocationSize = 1, initialValue = 100)
     private Long id;
 
     @Column(nullable = false, unique = true)

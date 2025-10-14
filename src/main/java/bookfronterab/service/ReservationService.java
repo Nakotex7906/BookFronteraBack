@@ -9,7 +9,7 @@ import bookfronterab.repo.ReservationRepository;
 import bookfronterab.repo.RoomRepository;
 import bookfronterab.repo.UserRepository;
 import bookfronterab.service.google.GoogleCalendarService;
-import bookfronterab.service.google.GoogleOAuthService;
+import bookfronterab.service.google.GoogleCredentialsService;
 import com.google.api.client.auth.oauth2.Credential;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +32,7 @@ public class ReservationService {
     private final BlackoutRepository blackoutRepo;
     private final UserRepository userRepo;
     private final GoogleCalendarService googleCalendarService;
-    private final GoogleOAuthService googleOAuthService;
+    private final GoogleCredentialsService googleCredentialsService;
     private final TimeService time;
 
     private static final int MIN_MINUTES = 30;
@@ -95,7 +95,7 @@ public class ReservationService {
         }
 
         try {
-            Credential credential = googleOAuthService.getCredentialForUser(reservation.getUser().getEmail());
+            Credential credential = googleCredentialsService.getCredential(reservation.getUser());
             if (credential != null && credential.getAccessToken() != null) {
                 log.info("Creando evento en Google Calendar para el usuario {}", reservation.getUser().getEmail());
                 googleCalendarService.createEventForReservation(reservation, credential.getAccessToken());

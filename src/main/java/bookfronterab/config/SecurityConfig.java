@@ -1,5 +1,7 @@
 package bookfronterab.config;
 
+import bookfronterab.service.google.CustomOAuth2UserService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,7 +15,12 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final CustomOAuth2UserService customOauth2UserService;
+    private final CustomAuthenticationSuccessHandler authenticationSuccessHandler;
+    private final CustomAuthenticationFailureHandler authenticationFailureHandler;
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -28,9 +35,23 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/api/v1", "/api/v1/", // índice de la API
+                                "/api/v1/availability/**", // Permite ver disponibilidad sin login
                                 "/h2-console/**"    // Consola H2
                         ).permitAll()
-                        .anyRequest().permitAll() // ajustar a authenticated() si se usa auth real
+                        .anyRequest().authenticated()
+                )
+                .oauth2Login(oauth -> oauth
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOauth2UserService)
+                        )
+                        .successHandler(authenticationSuccessHandler)
+                        .failureHandler(authenticationFailureHandler)
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/api/v1/logout")
+                        .logoutSuccessUrl("http://localhost:5173")
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
                 )
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable());
