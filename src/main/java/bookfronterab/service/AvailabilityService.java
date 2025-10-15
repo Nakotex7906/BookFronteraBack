@@ -30,6 +30,7 @@ public class AvailabilityService {
     public AvailabilityDto daily(Long roomId, LocalDate date, int slotMinutes) {
         var room = roomRepo.findById(roomId).orElseThrow();
         var weekday = date.getDayOfWeek();
+
         //revisa si la sala tiene horarios para el dia especificado de la semana
         OpeningHour oh = openingRepo.findByRoomAndWeekday(room, weekday)
                 .orElseThrow(() -> new IllegalStateException("La sala no tiene horario para " + weekday));
@@ -59,28 +60,28 @@ public class AvailabilityService {
     }
 
     private List<AvailabilityDto.Slot> computeFree(OffsetDateTime open, OffsetDateTime close,
-                                                   List<Reservation> res, List<Blackout> outs,
+                                                   List<Reservation> reservations, List<Blackout> blackouts,
                                                    int slotMinutes) {
         // Unimos ocupados (reservas + blackouts) y luego generamos gaps redondeados a slot
-        record Range(OffsetDateTime s, OffsetDateTime e) {}
+        record Range(OffsetDateTime start, OffsetDateTime end) {}
         List<Range> occ = new ArrayList<>();
-        res.forEach(r -> occ.add(new Range(r.getStartAt(), r.getEndAt())));
-        outs.forEach(b -> occ.add(new Range(b.getStartAt(), b.getEndAt())));
-        occ.sort((a,b)->a.s.compareTo(b.s));
+        reservations.forEach(r -> occ.add(new Range(r.getStartAt(), r.getEndAt())));
+        blackouts.forEach(b -> occ.add(new Range(b.getStartAt(), b.getEndAt())));
+        occ.sort((a,b)->a.start.compareTo(b.start));
 
         // merge intervals
         List<Range> merged = new ArrayList<>();
         OffsetDateTime cs = open, ce = open; // current pointer
 
         for (Range r: occ) {
-            if (r.e.isBefore(open) || r.s.isAfter(close)) continue; // fuera
-            OffsetDateTime s = r.s.isBefore(open) ? open : r.s;
-            OffsetDateTime e = r.e.isAfter(close) ? close : r.e;
+            if (r.end.isBefore(open) || r.start.isAfter(close)) continue; // fuera
+            OffsetDateTime s = r.start.isBefore(open) ? open : r.start;
+            OffsetDateTime e = r.end.isAfter(close) ? close : r.end;
             if (merged.isEmpty()) { merged.add(new Range(s,e)); }
             else {
                 Range last = merged.getLast();
-                if (!s.isAfter(last.e)) { // overlap
-                    merged.set(merged.size()-1, new Range(last.s, e.isAfter(last.e)? e : last.e));
+                if (!s.isAfter(last.end)) { // overlap
+                    merged.set(merged.size()-1, new Range(last.start, e.isAfter(last.end)? e : last.end));
                 } else {
                     merged.add(new Range(s,e));
                 }
@@ -90,10 +91,10 @@ public class AvailabilityService {
         List<AvailabilityDto.Slot> free = new ArrayList<>();
         OffsetDateTime cursor = open;
         for (Range r: merged) {
-            if (cursor.isBefore(r.s)) {
-                addFreeSlots(free, cursor, r.s, slotMinutes);
+            if (cursor.isBefore(r.start)) {
+                addFreeSlots(free, cursor, r.start, slotMinutes);
             }
-            cursor = r.e.isAfter(cursor) ? r.e : cursor;
+            cursor = r.end.isAfter(cursor) ? r.end : cursor;
         }
         if (cursor.isBefore(close)) addFreeSlots(free, cursor, close, slotMinutes);
         return free;
