@@ -70,8 +70,22 @@ public class AvailabilityService {
         occupied.sort(Comparator.comparing(a -> a.start));
 
         // merge intervals
-        List<Range> merged = new ArrayList<>();
+        List<Range> merged = getMergedRanges(occupied,open,close);
 
+        List<AvailabilityDto.Slot> free = new ArrayList<>();
+        OffsetDateTime cursor = open;
+        for (Range r: merged) {
+            if (cursor.isBefore(r.start)) {
+                addFreeSlots(free, cursor, r.start, slotMinutes);
+            }
+            cursor = r.end.isAfter(cursor) ? r.end : cursor;
+        }
+        if (cursor.isBefore(close)) addFreeSlots(free, cursor, close, slotMinutes);
+        return free;
+    }
+
+    private List<Range> getMergedRanges(List<Range> occupied, OffsetDateTime open, OffsetDateTime close) {
+        List<Range> merged = new ArrayList<>();
         for (Range r: occupied) { //aparentemente reune todos los horarios no disponibles en horarios continuos
             if (r.end.isBefore(open) || r.start.isAfter(close)) continue; // fuera
             OffsetDateTime s = r.start.isBefore(open) ? open : r.start;
@@ -86,17 +100,7 @@ public class AvailabilityService {
                 }
             }
         }
-
-        List<AvailabilityDto.Slot> free = new ArrayList<>();
-        OffsetDateTime cursor = open;
-        for (Range r: merged) {
-            if (cursor.isBefore(r.start)) {
-                addFreeSlots(free, cursor, r.start, slotMinutes);
-            }
-            cursor = r.end.isAfter(cursor) ? r.end : cursor;
-        }
-        if (cursor.isBefore(close)) addFreeSlots(free, cursor, close, slotMinutes);
-        return free;
+        return merged;
     }
 
     private void addFreeSlots(List<AvailabilityDto.Slot> free, OffsetDateTime from, OffsetDateTime to, int slotMinutes) {
