@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -63,17 +64,15 @@ public class AvailabilityService {
                                                    List<Reservation> reservations, List<Blackout> blackouts,
                                                    int slotMinutes) {
         // Unimos ocupados (reservas + blackouts) y luego generamos gaps redondeados a slot
-        record Range(OffsetDateTime start, OffsetDateTime end) {}
         List<Range> occupied = new ArrayList<>();
         reservations.forEach(r -> occupied.add(new Range(r.getStartAt(), r.getEndAt())));
         blackouts.forEach(b -> occupied.add(new Range(b.getStartAt(), b.getEndAt())));
-        occupied.sort((a, b)->a.start.compareTo(b.start));
+        occupied.sort(Comparator.comparing(a -> a.start));
 
         // merge intervals
         List<Range> merged = new ArrayList<>();
-        OffsetDateTime cs = open, ce = open; // current pointer
 
-        for (Range r: occupied) {
+        for (Range r: occupied) { //aparentemente reune todos los horarios no disponibles en horarios continuos
             if (r.end.isBefore(open) || r.start.isAfter(close)) continue; // fuera
             OffsetDateTime s = r.start.isBefore(open) ? open : r.start;
             OffsetDateTime e = r.end.isAfter(close) ? close : r.end;
@@ -155,4 +154,6 @@ public class AvailabilityService {
 
         return bookings.isEmpty() && outs.isEmpty();
     }
+
+    record Range(OffsetDateTime start, OffsetDateTime end) {}
 }
