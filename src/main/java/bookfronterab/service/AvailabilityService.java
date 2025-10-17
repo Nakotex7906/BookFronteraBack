@@ -64,16 +64,16 @@ public class AvailabilityService {
                                                    int slotMinutes) {
         // Unimos ocupados (reservas + blackouts) y luego generamos gaps redondeados a slot
         record Range(OffsetDateTime start, OffsetDateTime end) {}
-        List<Range> occ = new ArrayList<>();
-        reservations.forEach(r -> occ.add(new Range(r.getStartAt(), r.getEndAt())));
-        blackouts.forEach(b -> occ.add(new Range(b.getStartAt(), b.getEndAt())));
-        occ.sort((a,b)->a.start.compareTo(b.start));
+        List<Range> occupied = new ArrayList<>();
+        reservations.forEach(r -> occupied.add(new Range(r.getStartAt(), r.getEndAt())));
+        blackouts.forEach(b -> occupied.add(new Range(b.getStartAt(), b.getEndAt())));
+        occupied.sort((a, b)->a.start.compareTo(b.start));
 
         // merge intervals
         List<Range> merged = new ArrayList<>();
         OffsetDateTime cs = open, ce = open; // current pointer
 
-        for (Range r: occ) {
+        for (Range r: occupied) {
             if (r.end.isBefore(open) || r.start.isAfter(close)) continue; // fuera
             OffsetDateTime s = r.start.isBefore(open) ? open : r.start;
             OffsetDateTime e = r.end.isAfter(close) ? close : r.end;
