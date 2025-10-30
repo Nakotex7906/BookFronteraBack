@@ -26,14 +26,13 @@ public class User {
     private String email;
 
     @Column(nullable = false)
-    private String nombre;
+    private String name;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role rol;
+    @ManyToOne
+    private UserRole rol;
 
-    @Column(nullable = false)
-    private OffsetDateTime creadoEn;
 
     // Google Calendar Tokens
     @Column(length = 1024)

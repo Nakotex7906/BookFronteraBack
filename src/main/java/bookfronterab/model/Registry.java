@@ -1,9 +1,10 @@
 package bookfronterab.model;
 
-import java.time.ZonedDateTime;
-
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,10 +18,13 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "\"reservations\"")
-public class Reservation {
+@Table(name = "\"registry\"")
+public class Registry {
     @Id
-    private int idReservation;
-    private ZonedDateTime fecha;
-    private int reservationCell;
+    private int idRegistry;
+    @ManyToOne
+    private Reservation reservation;
+    @ManyToOne
+    @Enumerated(EnumType.STRING)
+    private State state;
 }

@@ -1,5 +1,5 @@
 package bookfronterab.dto;
 
-public class RoomDto {
+public class ReservationDto {
     
 }

@@ -2,7 +2,6 @@ package bookfronterab.service.google;
 
 import bookfronterab.model.User;
 import bookfronterab.repo.UserRepository;
-import bookfronterab.service.TimeService;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -23,7 +22,6 @@ import java.util.List;
 public class GoogleCredentialsService {
 
     private final UserRepository userRepository;
-    private final TimeService timeService;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String clientId;
