@@ -1,9 +1,6 @@
 package bookfronterab.service;
 
-import bookfronterab.dto.OpeningHoursDtos;
-import bookfronterab.model.OpeningHour;
 import bookfronterab.model.Room;
-import bookfronterab.repo.OpeningHourRepository;
 import bookfronterab.repo.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

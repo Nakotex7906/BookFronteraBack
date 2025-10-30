@@ -1,5 +1,7 @@
 package bookfronterab.model;
 
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,9 +16,11 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class Room {
+    @Id
     private int idRoom;
     private String name;
     private int capacity;
+    @ElementCollection
     private String[] equipment;
     private int floor;
 }

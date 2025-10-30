@@ -1,6 +1,6 @@
 package bookfronterab.dto;
 
-import bookfronterab.model.Role;
+import bookfronterab.model.UserRole;
 import lombok.Builder;
 import lombok.Data;
 
@@ -10,5 +10,5 @@ public class UserDto {
     private Long id;
     private String email;
     private String nombre;
-    private Role rol;
+    private UserRole rol;
 }

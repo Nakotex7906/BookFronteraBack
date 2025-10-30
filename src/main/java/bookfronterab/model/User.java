@@ -30,6 +30,7 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @ManyToOne
     private UserRole rol;
 
 
