@@ -23,4 +23,6 @@ public class Reservation {
     private int idReservation;
     private ZonedDateTime fecha;
     private int reservationCell;
+    private Room room;
+    private User user;
 }
