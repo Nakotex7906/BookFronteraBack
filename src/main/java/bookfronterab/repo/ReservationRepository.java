@@ -35,4 +35,18 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("newEndAt") ZonedDateTime newEndAt
     );
 
+    /**
+     * Busca todas las reservas que se solapen con un rango de tiempo dado (un día completo).
+     * Se usará para calcular la disponibilidad pública.
+     *
+     * @param startOfDay El inicio del día (ej. 00:00:00).
+     * @param endOfDay El fin del día (ej. 23:59:59).
+     * @return Una lista de todas las reservas que ocurren en ese día.
+     */
+    @Query("SELECT r FROM Reservation r WHERE r.startAt < :endOfDay AND r.endAt > :startOfDay")
+    List<Reservation> findAllReservationsBetween(
+            @Param("startOfDay") ZonedDateTime startOfDay,
+            @Param("endOfDay") ZonedDateTime endOfDay
+    );
+
 }
