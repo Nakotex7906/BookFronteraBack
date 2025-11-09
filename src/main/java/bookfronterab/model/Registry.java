@@ -24,7 +24,6 @@ public class Registry {
     private int idRegistry;
     @ManyToOne
     private Reservation reservation;
-    @ManyToOne
     @Enumerated(EnumType.STRING)
     private State state;
 }

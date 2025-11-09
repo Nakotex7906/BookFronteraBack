@@ -1,7 +1,7 @@
 package bookfronterab.config;
 
-import bookfronterab.model.Role;
 import bookfronterab.model.User;
+import bookfronterab.model.UserRole;
 import bookfronterab.repo.UserRepository;
 import bookfronterab.service.TimeService;
 import jakarta.servlet.ServletException;
@@ -45,7 +45,7 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
             user = new User();
             user.setEmail(email);
             user.setNombre(name);
-            user.setRol(Role.STUDENT);
+            user.setRol(UserRole.STUDENT);
             user.setCreadoEn(timeService.nowOffset());
         } else {
             user = userOptional.get();

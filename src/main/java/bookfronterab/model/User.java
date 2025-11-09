@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
-import java.time.OffsetDateTime;
+import java.time.OffsetDateTime; // <-- Asegúrate que esté importado
 
 @Entity
 @Table(name = "\"users\"")
@@ -26,13 +26,13 @@ public class User {
     private String email;
 
     @Column(nullable = false)
-    private String name;
+    private String nombre;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @ManyToOne
     private UserRole rol;
 
+    private OffsetDateTime creadoEn;
 
     // Google Calendar Tokens
     @Column(length = 1024)

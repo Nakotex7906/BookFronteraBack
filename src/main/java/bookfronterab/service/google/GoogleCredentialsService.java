@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import bookfronterab.service.TimeService;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
@@ -22,6 +23,7 @@ import java.util.List;
 public class GoogleCredentialsService {
 
     private final UserRepository userRepository;
+    private final TimeService timeService;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String clientId;

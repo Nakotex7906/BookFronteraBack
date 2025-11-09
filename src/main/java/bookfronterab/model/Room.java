@@ -1,14 +1,15 @@
 package bookfronterab.model;
 
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
+@Entity
 @Table(name = "\"rooms\"")
 @Getter
 @Setter
@@ -16,11 +17,17 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class Room {
+
     @Id
-    private int idRoom;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "room_seq")
+    @SequenceGenerator(name = "room_seq", sequenceName = "room_id_seq", allocationSize = 1, initialValue = 1)
+    private Long id;
+
     private String name;
     private int capacity;
+
     @ElementCollection
-    private String[] equipment;
+    private List<String> equipment;
+
     private int floor;
 }
