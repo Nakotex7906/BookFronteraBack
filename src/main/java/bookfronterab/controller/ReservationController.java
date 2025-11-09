@@ -1,9 +1,11 @@
 package bookfronterab.controller;
 
-import bookfronterab.dto.ReservationDtos;
+import bookfronterab.dto.ReservationDto;
 import bookfronterab.service.ReservationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,24 +18,36 @@ public class ReservationController {
     @PostMapping("/reservations")
     @ResponseStatus(HttpStatus.CREATED)
     public void create(
-            @RequestBody ReservationDtos.CreateRequest req,
-            @RequestHeader(value = "X-User-Id") Long userId) {
-        // Crea la reserva
-        reservationService.create(userId, req.roomId(), req.startAt(), req.endAt());
+            @RequestBody ReservationDto.CreateRequest req,
+            @AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            throw new SecurityException("No estás autenticado.");
+        }
+        String userEmail = principal.getAttribute("email");
+        reservationService.create(userEmail, req);
     }
 
+    /**
+     * Endpoint para obtener los detalles de una reserva específica por su ID.
+     *
+     * @param id El ID de la reserva.
+     * @return Un DTO {@link ReservationDto.Detail} con la información completa de la reserva.
+     */
     @GetMapping("/reservations/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void get(@PathVariable Long id) {
-        reservationService.get(id);
+    @ResponseStatus(HttpStatus.OK)
+    public ReservationDto.Detail get(@PathVariable Long id) {
+        return reservationService.getById(id);
     }
 
     @DeleteMapping("/reservations/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancel(@PathVariable Long id,
-                       @RequestHeader(value = "X-User-Id") Long userId,
+                       @AuthenticationPrincipal OAuth2User principal,
                        @RequestHeader(value = "X-Is-Admin", defaultValue = "false") boolean isAdmin) {
-        reservationService.cancel(id, userId, isAdmin);
+        if (principal == null) {
+            throw new SecurityException("No estás autenticado.");
+        }
+        String userEmail = principal.getAttribute("email");
+        reservationService.cancel(id, userEmail, isAdmin);
     }
-
 }

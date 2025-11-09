@@ -1,11 +1,289 @@
 package bookfronterab.service;
 
-import org.springframework.stereotype.Service;
-
+import bookfronterab.dto.ReservationDto;
+import bookfronterab.dto.RoomDto;
+import bookfronterab.dto.UserDto;
+import bookfronterab.model.Reservation;
+import bookfronterab.model.Room;
+import bookfronterab.model.User;
+import bookfronterab.repo.ReservationRepository;
+import bookfronterab.repo.RoomRepository;
+import bookfronterab.repo.UserRepository;
+import bookfronterab.service.google.GoogleCalendarService;
+import bookfronterab.service.google.GoogleCredentialsService;
+import com.google.api.client.auth.oauth2.Credential;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.time.ZonedDateTime;
+import java.util.List;
+
+/**
+ * Servicio para gestionar la lógica de negocio de las Reservas.
+ * Se encarga de crear, consultar y cancelar reservas, validando la disponibilidad
+ * y comunicándose con servicios externos como Google Calendar.
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReservationService {
-    
+
+    /**
+     * Repositorio para el acceso a datos de {@link Reservation}.
+     */
+    private final ReservationRepository reservationRepo;
+
+    /**
+     * Repositorio para el acceso a datos de {@link User}.
+     */
+    private final UserRepository userRepo;
+
+    /**
+     * Repositorio para el acceso a datos de {@link Room}.
+     */
+    private final RoomRepository roomRepo;
+
+    /**
+     * Servicio para interactuar con la API de Google Calendar.
+     */
+    private final GoogleCalendarService googleCalendarService;
+
+    /**
+     * Servicio para gestionar las credenciales de Google OAuth2.
+     */
+    private final GoogleCredentialsService googleCredentialsService;
+
+    /**
+     * Crea una nueva reserva, valida la disponibilidad y, opcionalmente,
+     * la añade al Google Calendar del usuario.
+     *
+     * @param userEmail El email del usuario autenticado que realiza la reserva.
+     * @param req       El DTO {@link ReservationDto.CreateRequest} con los datos de la reserva.
+     * @throws IllegalArgumentException   Si las fechas son nulas, inválidas o la sala no existe.
+     * @throws IllegalStateException      Si el usuario no se encuentra o la sala ya está reservada.
+     */
+    @Transactional
+    public void create(String userEmail, ReservationDto.CreateRequest req) {
+
+        //  Validación y búsqueda de User/Room
+        validateReservationRequest(req);
+        User user = userRepo.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado: " + userEmail));
+        Room room = roomRepo.findByIdWithLock(req.roomId()) // Usando el bloqueo pesimista
+                .orElseThrow(() -> new IllegalArgumentException("Sala no encontrada: " + req.roomId()));
+
+        // 3. Validar disponibilidad
+        checkAvailability(req.roomId(), req.startAt(), req.endAt());
+
+        // 4. Crear y guardar la reserva SIN EL ID DE GOOGLE
+        Reservation reservation = Reservation.builder()
+                .user(user)
+                .room(room)
+                .startAt(req.startAt())
+                .endAt(req.endAt())
+                .build();
+
+        Reservation savedReservation = reservationRepo.save(reservation);
+        log.info("Reserva {} creada (localmente) para usuario {}", savedReservation.getId(), userEmail);
+
+        // 5. (Opcional) Sincronizar con Google Calendar
+        if (req.addToGoogleCalendar()) {
+            // ahora guardará el ID de Google en la reserva
+            handleGoogleCalendarSync(user, savedReservation);
+        } else {
+            log.info("Usuario no solicitó añadir la reserva {} a Google Calendar. Omitiendo.", savedReservation.getId());
+        }
+    }
+
+    /**
+     * ayuda para validar la lógica de negocio y disponibilidad.
+     *
+     * @param roomId  El ID de la sala.
+     * @param startAt La fecha/hora de inicio.
+     * @param endAt   La fecha/hora de fin.
+     * @throws IllegalStateException Si se encuentran reservas conflictivas.
+     */
+    private void checkAvailability(Long roomId, ZonedDateTime startAt, ZonedDateTime endAt) {
+        List<Reservation> conflictingReservations = reservationRepo.findConflictingReservations(
+                roomId,
+                startAt,
+                endAt
+        );
+
+        if (!conflictingReservations.isEmpty()) {
+            log.warn("Conflicto de reserva detectado para la sala {} en el horario {} a {}", roomId, startAt, endAt);
+            throw new IllegalStateException("La sala ya está reservada en ese horario. Por favor, elige otro.");
+        }
+    }
+
+    /**
+     * ayuda para validar los datos de entrada de la petición de reserva.
+     *
+     * @param req El DTO de creación.
+     * @throws IllegalArgumentException Si los datos son inválidos.
+     */
+    private void validateReservationRequest(ReservationDto.CreateRequest req) {
+        if (req.startAt() == null || req.endAt() == null) {
+            throw new IllegalArgumentException("Las fechas de inicio y fin no pueden ser nulas.");
+        }
+        if (!req.startAt().isBefore(req.endAt())) {
+            throw new IllegalArgumentException("La fecha de inicio debe ser anterior a la fecha de fin.");
+        }
+        // TODO: Añadir más validaciones (ej. tiempo mínimo de reserva, máximo de antelación, etc.)
+    }
+
+    /**
+     * ayuda para sincronizar la reserva con Google Calendar.
+     * AHORA también guarda el ID del evento de Google en la reserva.
+     *
+     * @param user             El usuario dueño de la reserva.
+     * @param savedReservation La reserva que acaba de ser guardada.
+     */
+    private void handleGoogleCalendarSync(User user, Reservation savedReservation) {
+        try {
+            log.info("Intentando registrar reserva {} en Google Calendar para {}", savedReservation.getId(), user.getEmail());
+            Credential credential = googleCredentialsService.getCredential(user);
+
+            // 1. Creamos el evento y CAPTURAMOS el ID
+            String googleEventId = googleCalendarService.createEventForReservation(savedReservation, credential.getAccessToken());
+
+            // 2. Guardamos el ID en nuestra reserva local
+            savedReservation.setGoogleEventId(googleEventId);
+            reservationRepo.save(savedReservation); // Re-guardamos para persistir el ID
+
+            log.info("Reserva {} registrada en Google Calendar con ID: {}", savedReservation.getId(), googleEventId);
+
+        } catch (IOException e) {
+            // No fallamos la reserva si Google Calendar falla.
+            log.error("No se pudo crear el evento de Google Calendar para la reserva {}: {}", savedReservation.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Obtiene los detalles de una reserva específica por su ID.
+     *
+     * @param id El ID de la reserva a buscar.
+     * @return Un DTO {@link ReservationDto.Detail} con la información completa.
+     * @throws IllegalArgumentException Si no se encuentra una reserva con ese ID.
+     */
+    @Transactional(readOnly = true) // optimizar consultas de solo lectura
+    public ReservationDto.Detail getById(Long id) {
+        log.info("Buscando reserva con ID: {}", id);
+
+        // 1. Buscar reserva por ID.
+        // 2. Si no existe, lanzar NotFoundException (manejada por GlobalExceptionHandler).
+        Reservation reservation = reservationRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada con ID: " + id));
+
+        // 3. Mapear la entidad Reservation a un ReservationDto.Detail y devolverlo.
+        return mapToDetailDto(reservation);
+    }
+
+    /**
+     * Cancela una reserva existente, verificando los permisos del usuario.
+     * <p>
+     * La lógica de permisos es:
+     * 1. El usuario que solicita la cancelación debe ser el dueño de la reserva.
+     * 2. O, el usuario que solicita la cancelación es un Administrador (basado en el flag `isAdmin`).
+     * <p>
+     * Si no se cumple ninguna, se lanza una {@link SecurityException}.
+     *
+     * @param id        El ID de la reserva a cancelar.
+     * @param userEmail El email del usuario autenticado que solicita la cancelación.
+     * @param isAdmin   Flag (enviado desde el controlador) que indica si el usuario es administrador.
+     * @throws IllegalArgumentException Si la reserva no se encuentra.
+     * @throws SecurityException        Si el usuario no tiene permisos para cancelar esta reserva.
+     */
+    @Transactional
+    public void cancel(Long id, String userEmail, boolean isAdmin) {
+        log.info("Intento de cancelación para reserva ID: {} por usuario: {}", id, userEmail);
+
+        // 1. Buscar la reserva por 'id'.
+        Reservation reservation = reservationRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada con ID: " + id));
+
+        // 2. Verificar permisos.
+        boolean isOwner = reservation.getUser().getEmail().equals(userEmail);
+        if (!isOwner && !isAdmin) {
+            log.warn("¡Acceso denegado! Usuario {} intentó cancelar la reserva {} (Dueño: {}) sin permisos.",
+                    userEmail, id, reservation.getUser().getEmail());
+            throw new SecurityException("No tienes permiso para cancelar esta reserva. Solo el dueño o un administrador pueden hacerlo.");
+        }
+
+        // 3. Sincronizar con Google Calendar para borrar el evento.
+        // Verificamos si nuestra reserva tiene un ID de Google guardado.
+        if (reservation.getGoogleEventId() != null) {
+            log.info("La reserva {} tiene un evento de Google Calendar ({}). Intentando borrar...", id, reservation.getGoogleEventId());
+            try {
+                // Obtenemos las credenciales del usuario QUE HIZO la reserva
+                User owner = reservation.getUser();
+                Credential credential = googleCredentialsService.getCredential(owner);
+
+                // Llamamos al servicio de borrado
+                googleCalendarService.deleteEvent(reservation.getGoogleEventId(), credential.getAccessToken());
+
+            } catch (IOException e) {
+                // Si falla la API de Google, solo lo logueamos.
+                // NO detenemos la cancelación local.
+                log.error("No se pudo borrar el evento de Google Calendar ({}). La reserva local se borrará de todos modos. Error: {}",
+                        reservation.getGoogleEventId(), e.getMessage());
+            }
+        }
+
+        // 4. Borrar la reserva de la base de datos local.
+        reservationRepo.delete(reservation);
+
+        log.info("Reserva {} cancelada exitosamente por {}.", id, (isAdmin && !isOwner) ? "Admin " + userEmail : userEmail);
+    }
+
+    /**
+     * Convierte una entidad {@link Reservation} a su DTO de detalle.
+     *
+     * @param reservation La entidad a convertir.
+     * @return El DTO {@link ReservationDto.Detail}.
+     */
+    private ReservationDto.Detail mapToDetailDto(Reservation reservation) {
+        return new ReservationDto.Detail(
+                reservation.getId(),
+                reservation.getStartAt(),
+                reservation.getEndAt(),
+                mapRoomToDto(reservation.getRoom()),
+                mapUserToDto(reservation.getUser())
+        );
+    }
+
+    /**
+     * Convierte una entidad {@link Room} a su DTO.
+     *
+     * @param room La entidad a convertir.
+     * @return El DTO {@link RoomDto}.
+     */
+    private RoomDto mapRoomToDto(Room room) {
+        return RoomDto.builder()
+                .id(room.getId())
+                .name(room.getName())
+                .capacity(room.getCapacity())
+                .equipment(room.getEquipment())
+                .floor(room.getFloor())
+                .build();
+    }
+
+    /**
+     * Convierte una entidad {@link User} a su DTO.
+     *
+     * @param user La entidad a convertir.
+     * @return El DTO {@link UserDto}.
+     */
+    private UserDto mapUserToDto(User user) {
+        return UserDto.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .nombre(user.getNombre())
+                .rol(user.getRol())
+                .build();
+    }
+
 }
