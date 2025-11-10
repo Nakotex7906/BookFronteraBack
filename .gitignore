@@ -37,4 +37,3 @@ src/main/resources/application-dev.yml
 *.yml
 
 application.properties
-.gitignore
