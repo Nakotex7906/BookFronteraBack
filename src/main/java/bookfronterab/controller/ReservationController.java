@@ -15,6 +15,9 @@ public class ReservationController {
 
     private final ReservationService reservationService;
 
+    /**
+     * Endpoint para crear un reserva.
+     */
     @PostMapping("/reservations")
     @ResponseStatus(HttpStatus.CREATED)
     public void create(
@@ -25,6 +28,24 @@ public class ReservationController {
         }
         String userEmail = principal.getAttribute("email");
         reservationService.create(userEmail, req);
+    }
+
+    /**
+     * Endpoint para obtener todas las reservas del usuario autenticado,
+     * clasificadas en actual, futuras y pasadas.
+     *
+     * @param principal El usuario autenticado (OAuth2User).
+     * @return Un DTO {@link ReservationDto.MyReservationsResponse} con las listas.
+     */
+    @GetMapping("/reservations/my-reservations")
+    @ResponseStatus(HttpStatus.OK)
+    public ReservationDto.MyReservationsResponse getMyReservations(
+            @AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            throw new SecurityException("No estás autenticado.");
+        }
+        String userEmail = principal.getAttribute("email");
+        return reservationService.getMyReservations(userEmail);
     }
 
     /**

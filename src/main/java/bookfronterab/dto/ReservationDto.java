@@ -1,6 +1,7 @@
 package bookfronterab.dto;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 
 /**
  * Contenedor para los Data Transfer Objects (DTOs) relacionados con Reservation.
@@ -40,4 +41,15 @@ public class ReservationDto {
             RoomDto room,
             UserDto user
     ) {}
+
+    /**
+     * DTO para la respuesta de la página "Mis Reservas".
+     * Agrupa las reservas del usuario en categorías.
+     */
+    public record MyReservationsResponse(
+            Detail current, // Puede ser null
+            List<Detail> future,
+            List<Detail> past
+    ) {}
+
 }

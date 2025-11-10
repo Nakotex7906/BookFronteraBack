@@ -49,4 +49,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("endOfDay") ZonedDateTime endOfDay
     );
 
+    /**
+     * Busca todas las reservas de un usuario específico, ordenadas por fecha de inicio.
+     * Usamos 'user.email' para la búsqueda.
+     */
+    List<Reservation> findByUserEmailOrderByStartAtAsc(String userEmail);
+
 }

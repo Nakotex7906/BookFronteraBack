@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -55,6 +56,8 @@ public class ReservationService {
      * Servicio para gestionar las credenciales de Google OAuth2.
      */
     private final GoogleCredentialsService googleCredentialsService;
+
+    private final TimeService timeService;
 
     /**
      * Crea una nueva reserva, valida la disponibilidad y, opcionalmente,
@@ -160,6 +163,54 @@ public class ReservationService {
             // No fallamos la reserva si Google Calendar falla.
             log.error("No se pudo crear el evento de Google Calendar para la reserva {}: {}", savedReservation.getId(), e.getMessage());
         }
+    }
+
+    /**
+     * Obtiene todas las reservas de un usuario y las clasifica en
+     * actual, futuras y pasadas.
+     *
+     * @param userEmail El email del usuario autenticado.
+     * @return Un DTO con las listas de reservas clasificadas.
+     */
+    @Transactional(readOnly = true)
+    public ReservationDto.MyReservationsResponse getMyReservations(String userEmail) {
+        log.info("Buscando todas las reservas para el usuario: {}", userEmail);
+
+        // Obtenemos la hora actual en la zona horaria de la app
+        ZonedDateTime now = timeService.nowOffset().toZonedDateTime();
+
+        // 1. Obtenemos todas las reservas del usuario desde la BD
+        List<Reservation> allReservations = reservationRepo.findByUserEmailOrderByStartAtAsc(userEmail);
+
+        ReservationDto.Detail currentReservation = null;
+        List<ReservationDto.Detail> futureReservations = new ArrayList<>();
+        List<ReservationDto.Detail> pastReservations = new ArrayList<>();
+
+        // 3. Clasificamos cada reserva
+        for (Reservation res : allReservations) {
+            ReservationDto.Detail detailDto = mapToDetailDto(res);
+
+            if (res.getStartAt().isAfter(now)) {
+                // Si la reserva aún no empieza = FUTURA
+                futureReservations.add(detailDto);
+            } else if (res.getEndAt().isBefore(now)) {
+                // Si la reserva ya terminó = PASADA
+                pastReservations.add(detailDto);
+            } else {
+                // Si no es futura ni pasada, está ocurriendo AHORA
+                currentReservation = detailDto;
+            }
+        }
+
+        log.info("Usuario {} tiene {} reservas futuras, {} pasadas y {} actual.",
+                userEmail, futureReservations.size(), pastReservations.size(), (currentReservation != null ? 1 : 0));
+
+        // 4. Devolvemos el DTO de respuesta
+        return new ReservationDto.MyReservationsResponse(
+                currentReservation,
+                futureReservations,
+                pastReservations
+        );
     }
 
     /**
