@@ -26,7 +26,12 @@ public class Room {
     private String name;
     private int capacity;
 
-    @ElementCollection
+    // ---
+    // --- ESTA ES LA LÍNEA QUE ARREGLA EL TEST ---
+    // ---
+    // Le decimos a JPA que cargue esta lista "ansiosamente" (EAGER)
+    // en lugar de "perezosamente" (LAZY).
+    @ElementCollection(fetch = FetchType.EAGER)
     private List<String> equipment;
 
     private int floor;
