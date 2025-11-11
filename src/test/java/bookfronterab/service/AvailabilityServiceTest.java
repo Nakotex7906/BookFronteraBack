@@ -1,18 +1,22 @@
 package bookfronterab.service;
 
-import bookfronterab.dto.AvailabilityDto;
-import bookfronterab.dto.RoomDto;
-import bookfronterab.model.Reservation;
-import bookfronterab.model.Room;
-import bookfronterab.model.User;
-import bookfronterab.model.UserRole;
-import bookfronterab.repo.ReservationRepository;
-import bookfronterab.repo.RoomRepository;
-import bookfronterab.repo.UserRepository;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -22,15 +26,15 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
+import bookfronterab.dto.AvailabilityDto;
+import bookfronterab.dto.RoomDto;
+import bookfronterab.model.Reservation;
+import bookfronterab.model.Room;
+import bookfronterab.model.User;
+import bookfronterab.model.UserRole;
+import bookfronterab.repo.ReservationRepository;
+import bookfronterab.repo.RoomRepository;
+import bookfronterab.repo.UserRepository;
 
 /**
  * Pruebas de integración para {@link AvailabilityService}.
@@ -74,13 +78,18 @@ class AvailabilityServiceTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create");
     }
 
-    // --- 2. Mock de Dependencias Externas ---
+// --- 2. Mock de Dependencias Externas ---
 
     /**
-     * Mock para {@link TimeService}. Permite fijar la zona horaria
-     * para que los tests de cálculo de slots sean predecibles.
+     * Mock del servicio {@link TimeService}, generalmente inyectado por
+     * el framework de pruebas (ej. Mockito).
+     * <p>
+     * Se utiliza para simular y controlar el comportamiento del tiempo
+     * (como fijar la zona horaria o una hora específica). Esto es
+     * esencial para garantizar que los tests que dependen del tiempo
+     * (ej. cálculo de slots) sean deterministas y repetibles.
      */
-    @MockBean
+    @Mock // O @MockBean si estás en un contexto de Spring Boot Test
     private TimeService timeService;
 
     // --- 3. Inyección de Servicio y Repositorios Reales ---
