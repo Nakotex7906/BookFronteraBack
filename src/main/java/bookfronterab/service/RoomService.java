@@ -25,6 +25,18 @@ public class RoomService {
                 .collect(Collectors.toList());
     }
 
+    public RoomDto createRoom(RoomDto roomDto) {
+        Room room = Room.builder()
+                .name(roomDto.getName())
+                .capacity(roomDto.getCapacity())
+                .equipment(roomDto.getEquipment())
+                .floor(roomDto.getFloor())
+                .build();
+        room = roomRepo.save(room);
+        return mapToDto(room);
+    }
+
+
     /**
      * mapea la entidad Room al RoomDto.
      */
