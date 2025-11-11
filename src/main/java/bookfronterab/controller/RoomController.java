@@ -28,6 +28,17 @@ public class RoomController {
         return new ResponseEntity<>(newRoom, HttpStatus.CREATED); // 201 Created
     }
 
+    @DeleteMapping("{id}")
+    public ResponseEntity<?> deleteRoom(@PathVariable Long id) {
+        roomService.delateRoom(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    @PatchMapping("{id}")
+    public ResponseEntity<RoomDto> patchRoom(@PathVariable Long id, @Valid @RequestBody RoomDto roomDto) {
+        RoomDto patchedRoom = roomService.patchRoom(id, roomDto);
+        return ResponseEntity.ok(patchedRoom);
+    }
 
 
 }
