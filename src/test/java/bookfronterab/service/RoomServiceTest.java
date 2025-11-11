@@ -19,17 +19,40 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Pruebas de integración para {@link RoomService}.
+ *
+ * <p>Esta clase de prueba levanta el contexto completo de Spring Boot
+ * (@SpringBootTest) y utiliza Testcontainers (@Testcontainers) para
+ * ejecutar los tests contra una base de datos PostgreSQL real y efímera.
+ * Esto asegura que la lógica del servicio, el mapeo de JPA y las
+ * consultas SQL personalizadas funcionan como se espera en un entorno
+ * similar al de producción.</p>
+ */
 @Testcontainers
 @SpringBootTest
 class RoomServiceTest {
 
     // --- 1. Configuración de Testcontainers (BBDD real) ---
+
+    /**
+     * Define y configura el contenedor Docker de PostgreSQL que se
+     * iniciará antes de que se ejecuten las pruebas de esta clase.
+     * Es estático para que se comparta entre todos los métodos de prueba.
+     */
     @Container
     public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
             .withDatabaseName("bookfronterab-test")
             .withUsername("testuser")
             .withPassword("testpass");
 
+    /**
+     * Intercepta la configuración de la aplicación ANTES de que arranque
+     * y sobrescribe las propiedades de la base de datos (URL, usuario, contraseña)
+     * con los valores dinámicos generados por el contenedor de Testcontainers.
+     *
+     * @param registry El registro de propiedades de Spring.
+     */
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
@@ -40,18 +63,37 @@ class RoomServiceTest {
     }
 
     // --- 2. Inyección de Servicio y Repositorios Reales ---
-    @Autowired
-    private RoomService roomService; // El servicio que estamos probando
 
+    /**
+     * El servicio bajo prueba (System Under Test - SUT).
+     * Spring inyecta la instancia real del servicio.
+     */
     @Autowired
-    private RoomRepository roomRepository; // El repo real para meter datos
+    private RoomService roomService;
 
+    /**
+     * Repositorio real de Room, inyectado por Spring.
+     * Se utiliza para configurar el estado de la base de datos (Arrange)
+     * y para limpiar (Teardown).
+     */
+    @Autowired
+    private RoomRepository roomRepository;
+
+    /**
+     * Método de configuración que se ejecuta ANTES de cada prueba (@Test).
+     * Asegura que la tabla de 'rooms' esté vacía, garantizando el
+     * aislamiento de cada prueba.
+     */
     @BeforeEach
     void setUp() {
         // Limpiamos la BBDD antes de CADA test
         roomRepository.deleteAllInBatch();
     }
 
+    /**
+     * Método de limpieza que se ejecuta DESPUÉS de cada prueba (@Test).
+     * Limpia los datos creados durante la prueba.
+     */
     @AfterEach
     void tearDown() {
         roomRepository.deleteAllInBatch();
@@ -59,6 +101,13 @@ class RoomServiceTest {
 
     // --- 3. Los Tests ---
 
+    /**
+     * Prueba el escenario "feliz" donde existen salas en la base de datos.
+     * Verifica que el servicio:
+     * 1. Encuentra todas las salas.
+     * 2. Las mapea correctamente a {@link RoomDto}.
+     * 3. Maneja correctamente la carga de colecciones (como 'equipment').
+     */
     @Test
     @DisplayName("getAllRooms debe devolver una lista de DTOs cuando hay salas")
     void getAllRooms_ShouldReturnRoomDtos_WhenRoomsExist() {
@@ -88,16 +137,22 @@ class RoomServiceTest {
         // Verificamos que los datos se hayan mapeado correctamente
         assertEquals(2, resultDtos.size());
         
+        // Verificamos el mapeo de la Sala 1
         assertEquals("Sala 1", resultDtos.get(0).getName());
         assertEquals(10, resultDtos.get(0).getCapacity());
-        assertEquals(2, resultDtos.get(0).getEquipment().size()); // Verificamos la lista lazy
+        assertEquals(2, resultDtos.get(0).getEquipment().size()); // Verifica la carga de la colección
         assertTrue(resultDtos.get(0).getEquipment().contains("TV"));
         
+        // Verificamos el mapeo de la Sala 2
         assertEquals("Sala 2", resultDtos.get(1).getName());
-        assertEquals(1, resultDtos.get(1).getEquipment().size()); // Verificamos la lista lazy
+        assertEquals(1, resultDtos.get(1).getEquipment().size()); // Verifica la carga de la colección
         assertTrue(resultDtos.get(1).getEquipment().contains("Proyector"));
     }
 
+    /**
+     * Prueba el escenario donde la base de datos está vacía.
+     * Verifica que el servicio devuelve una lista vacía en lugar de nulo.
+     */
     @Test
     @DisplayName("getAllRooms debe devolver una lista vacía si no hay salas")
     void getAllRooms_ShouldReturnEmptyList_WhenNoRoomsExist() {
@@ -108,7 +163,7 @@ class RoomServiceTest {
         List<RoomDto> resultDtos = roomService.getAllRooms();
 
         // Assert
-        assertNotNull(resultDtos);
-        assertTrue(resultDtos.isEmpty());
+        assertNotNull(resultDtos, "La lista no debe ser nula");
+        assertTrue(resultDtos.isEmpty(), "La lista debe estar vacía");
     }
 }
