@@ -6,6 +6,7 @@ import bookfronterab.dto.UserDto;
 import bookfronterab.model.Reservation;
 import bookfronterab.model.Room;
 import bookfronterab.model.User;
+import bookfronterab.model.UserRole;
 import bookfronterab.repo.ReservationRepository;
 import bookfronterab.repo.RoomRepository;
 import bookfronterab.repo.UserRepository;
@@ -21,6 +22,9 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
+
 
 /**
  * Servicio para gestionar la lógica de negocio de las Reservas.
@@ -80,6 +84,10 @@ public class ReservationService {
 
         // 3. Validar disponibilidad
         checkAvailability(req.roomId(), req.startAt(), req.endAt());
+       //validar limite semanal (si no es admin verificamos si ya reservo esta semana)
+        if (user.getRol() != UserRole.ADMIN) {
+            validateUserWeeklyLimit(user, req.startAt());
+        }
 
         // 4. Crear y guardar la reserva SIN EL ID DE GOOGLE
         Reservation reservation = Reservation.builder()
@@ -135,6 +143,28 @@ public class ReservationService {
         if (!req.startAt().isBefore(req.endAt())) {
             throw new IllegalArgumentException("La fecha de inicio debe ser anterior a la fecha de fin.");
         }
+        // Validar que no sea en el pasado
+        // Usamos ZonedDateTime.now() para comparar con el momento actual
+        if (req.startAt().isBefore(ZonedDateTime.now())) {
+            throw new IllegalArgumentException("No se pueden crear reservas en el pasado.");
+        }
+
+        // 4. Validar duración mínima (Ej: 15 minutos)
+        // Importar: java.time.temporal.ChronoUnit
+        long durationMinutes = java.time.temporal.ChronoUnit.MINUTES.between(req.startAt(), req.endAt());
+        if (durationMinutes < 15) {
+            throw new IllegalArgumentException("La reserva es muy corta. La duración mínima es de 15 minutos.");
+        }
+
+        // 5. Validar duración máxima (Ej: 1 horas) - Opcional, para evitar bloqueos de día completo por error
+        if (durationMinutes > 60) { // 1h
+            throw new IllegalArgumentException("La reserva excede el tiempo permitido (máximo 4 horas).");
+        }
+
+        // 6. Validar antelación máxima (Ej: No reservar con más de 3 meses de adelanto)
+        if (req.startAt().isAfter(ZonedDateTime.now().plusWeeks(1))) {
+            throw new IllegalArgumentException("No se pueden realizar reservas con más de 3 meses de antelación.");
+        }
         // TODO: Añadir más validaciones (ej. tiempo mínimo de reserva, máximo de antelación, etc.)
     }
 
@@ -164,6 +194,28 @@ public class ReservationService {
             log.error("No se pudo crear el evento de Google Calendar para la reserva {}: {}", savedReservation.getId(), e.getMessage());
         }
     }
+    /**
+     * (NUEVO) Valida 1 reserva por semana laboral (Lunes-Viernes). (jose)
+     */
+    private void validateUserWeeklyLimit(User user, ZonedDateTime reservationDate) {
+        // Inicio de semana: Lunes 00:00
+        ZonedDateTime startOfWeek = reservationDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+        // Fin de semana laboral: VIERNES 23:59
+        ZonedDateTime endOfWeek = reservationDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.FRIDAY))
+                .withHour(23).withMinute(59).withSecond(59).withNano(999999999);
+
+        long count = reservationRepo.countByUserEmailAndStartAtBetween(
+                user.getEmail(), startOfWeek, endOfWeek
+        );
+
+        if (count >= 1) {
+            log.warn("Bloqueo: Usuario {} ya tiene reserva entre el lunes {} y viernes {}.",
+                    user.getEmail(), startOfWeek.toLocalDate(), endOfWeek.toLocalDate());
+            throw new IllegalStateException("Límite alcanzado: Solo puedes realizar 1 reserva por semana laboral (Lun-Vie).");
+        }
+    }
 
     /**
      * Obtiene todas las reservas de un usuario y las clasifica en
@@ -172,6 +224,22 @@ public class ReservationService {
      * @param userEmail El email del usuario autenticado.
      * @return Un DTO con las listas de reservas clasificadas.
      */
+
+    @Transactional(readOnly = true)
+    public List<ReservationDto.Detail> getReservationsByRoom(Long roomId, String userEmail) {
+        User user = userRepo.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
+
+        if (user.getRol() != UserRole.ADMIN) {
+            throw new SecurityException("Acceso denegado.");
+        }
+
+        List<Reservation> reservations = reservationRepo.findByRoomIdOrderByStartAtAsc(roomId);
+
+        return reservations.stream()
+                .map(this::mapToDetailDto)
+                .toList();
+    }
     @Transactional(readOnly = true)
     public ReservationDto.MyReservationsResponse getMyReservations(String userEmail) {
         log.info("Buscando todas las reservas para el usuario: {}", userEmail);
@@ -233,6 +301,7 @@ public class ReservationService {
         return mapToDetailDto(reservation);
     }
 
+
     /**
      * Cancela una reserva existente, verificando los permisos del usuario.
      * <p>
@@ -243,21 +312,23 @@ public class ReservationService {
      * Si no se cumple ninguna, se lanza una {@link SecurityException}.
      *
      * @param id        El ID de la reserva a cancelar.
-     * @param userEmail El email del usuario autenticado que solicita la cancelación.
-     * @param isAdmin   Flag (enviado desde el controlador) que indica si el usuario es administrador.
+     * @param userEmail El email del usuario autenticado que solicita la cancelación
      * @throws IllegalArgumentException Si la reserva no se encuentra.
      * @throws SecurityException        Si el usuario no tiene permisos para cancelar esta reserva.
      */
     @Transactional
-    public void cancel(Long id, String userEmail, boolean isAdmin) {
+    public void cancel(Long id, String userEmail) {
         log.info("Intento de cancelación para reserva ID: {} por usuario: {}", id, userEmail);
 
         // 1. Buscar la reserva por 'id'.
         Reservation reservation = reservationRepo.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada con ID: " + id));
-
+        //Para que el servicio ya no pregunte si es admin y lo averigue por el solo
+        User requestor = userRepo.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
         // 2. Verificar permisos.
         boolean isOwner = reservation.getUser().getEmail().equals(userEmail);
+        boolean isAdmin = requestor.getRol() == UserRole.ADMIN;
         if (!isOwner && !isAdmin) {
             log.warn("¡Acceso denegado! Usuario {} intentó cancelar la reserva {} (Dueño: {}) sin permisos.",
                     userEmail, id, reservation.getUser().getEmail());
