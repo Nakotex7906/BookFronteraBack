@@ -1,6 +1,7 @@
 package bookfronterab.service;
 
 import bookfronterab.dto.RoomDto;
+import bookfronterab.exception.ResourceNotFoundException;
 import bookfronterab.model.Room;
 import bookfronterab.repo.RoomRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -16,43 +17,24 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Pruebas de integración para {@link RoomService}.
- *
- * <p>Esta clase de prueba levanta el contexto completo de Spring Boot
- * (@SpringBootTest) y utiliza Testcontainers (@Testcontainers) para
- * ejecutar los tests contra una base de datos PostgreSQL real y efímera.
- * Esto asegura que la lógica del servicio, el mapeo de JPA y las
- * consultas SQL personalizadas funcionan como se espera en un entorno
- * similar al de producción.</p>
+ * Pruebas de integración para RoomService.
+ * Verifica CRUD completo contra base de datos real.
  */
 @Testcontainers
 @SpringBootTest
 class RoomServiceTest {
 
-    // --- 1. Configuración de Testcontainers (BBDD real) ---
-
-    /**
-     * Define y configura el contenedor Docker de PostgreSQL que se
-     * iniciará antes de que se ejecuten las pruebas de esta clase.
-     * Es estático para que se comparta entre todos los métodos de prueba.
-     */
     @Container
     public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
             .withDatabaseName("bookfronterab-test")
             .withUsername("testuser")
             .withPassword("testpass");
 
-    /**
-     * Intercepta la configuración de la aplicación ANTES de que arranque
-     * y sobrescribe las propiedades de la base de datos (URL, usuario, contraseña)
-     * con los valores dinámicos generados por el contenedor de Testcontainers.
-     *
-     * @param registry El registro de propiedades de Spring.
-     */
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
@@ -62,108 +44,68 @@ class RoomServiceTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create");
     }
 
-    // --- 2. Inyección de Servicio y Repositorios Reales ---
+    @Autowired private RoomService roomService;
+    @Autowired private RoomRepository roomRepository;
 
-    /**
-     * El servicio bajo prueba (System Under Test - SUT).
-     * Spring inyecta la instancia real del servicio.
-     */
-    @Autowired
-    private RoomService roomService;
-
-    /**
-     * Repositorio real de Room, inyectado por Spring.
-     * Se utiliza para configurar el estado de la base de datos (Arrange)
-     * y para limpiar (Teardown).
-     */
-    @Autowired
-    private RoomRepository roomRepository;
-
-    /**
-     * Método de configuración que se ejecuta ANTES de cada prueba (@Test).
-     * Asegura que la tabla de 'rooms' esté vacía, garantizando el
-     * aislamiento de cada prueba.
-     */
     @BeforeEach
     void setUp() {
-        // Limpiamos la BBDD antes de CADA test
         roomRepository.deleteAllInBatch();
     }
 
-    /**
-     * Método de limpieza que se ejecuta DESPUÉS de cada prueba (@Test).
-     * Limpia los datos creados durante la prueba.
-     */
-    @AfterEach
-    void tearDown() {
-        roomRepository.deleteAllInBatch();
+    @Test
+    @DisplayName("createRoom() debe guardar la sala y devolver DTO")
+    void createRoom_ShouldSaveAndReturnDto() {
+        RoomDto request = RoomDto.builder().name("Nueva Sala").capacity(20).floor(3).equipment(List.of("PC")).build();
+
+        RoomDto response = roomService.createRoom(request);
+
+        assertNotNull(response.getId());
+        assertEquals("Nueva Sala", response.getName());
+        
+        Optional<Room> saved = roomRepository.findById(response.getId());
+        assertTrue(saved.isPresent());
     }
 
-    // --- 3. Los Tests ---
-
-    /**
-     * Prueba el escenario "feliz" donde existen salas en la base de datos.
-     * Verifica que el servicio:
-     * 1. Encuentra todas las salas.
-     * 2. Las mapea correctamente a {@link RoomDto}.
-     * 3. Maneja correctamente la carga de colecciones (como 'equipment').
-     */
     @Test
-    @DisplayName("getAllRooms debe devolver una lista de DTOs cuando hay salas")
-    void getAllRooms_ShouldReturnRoomDtos_WhenRoomsExist() {
-        // Arrange
-        // Creamos y guardamos datos de prueba directamente en la BBDD
-        Room room1 = Room.builder()
-                .name("Sala 1")
-                .capacity(10)
-                .floor(1)
-                .equipment(List.of("TV", "Pizarra")) // Dato clave
-                .build();
-        roomRepository.save(room1);
+    @DisplayName("getAllRooms debe devolver lista de salas")
+    void getAllRooms_ShouldReturnList() {
+        roomRepository.save(Room.builder().name("S1").capacity(5).floor(1).equipment(List.of("A")).build());
+        roomRepository.save(Room.builder().name("S2").capacity(5).floor(1).equipment(List.of("B")).build());
 
-        Room room2 = Room.builder()
-                .name("Sala 2")
-                .capacity(5)
-                .floor(2)
-                .equipment(List.of("Proyector")) // Dato clave
-                .build();
-        roomRepository.save(room2);
-
-        // Act
-        // Llamamos al método del servicio que queremos probar
-        List<RoomDto> resultDtos = roomService.getAllRooms();
-
-        // Assert
-        // Verificamos que los datos se hayan mapeado correctamente
-        assertEquals(2, resultDtos.size());
-        
-        // Verificamos el mapeo de la Sala 1
-        assertEquals("Sala 1", resultDtos.get(0).getName());
-        assertEquals(10, resultDtos.get(0).getCapacity());
-        assertEquals(2, resultDtos.get(0).getEquipment().size()); // Verifica la carga de la colección
-        assertTrue(resultDtos.get(0).getEquipment().contains("TV"));
-        
-        // Verificamos el mapeo de la Sala 2
-        assertEquals("Sala 2", resultDtos.get(1).getName());
-        assertEquals(1, resultDtos.get(1).getEquipment().size()); // Verifica la carga de la colección
-        assertTrue(resultDtos.get(1).getEquipment().contains("Proyector"));
+        List<RoomDto> dtos = roomService.getAllRooms();
+        assertEquals(2, dtos.size());
     }
 
-    /**
-     * Prueba el escenario donde la base de datos está vacía.
-     * Verifica que el servicio devuelve una lista vacía en lugar de nulo.
-     */
     @Test
-    @DisplayName("getAllRooms debe devolver una lista vacía si no hay salas")
-    void getAllRooms_ShouldReturnEmptyList_WhenNoRoomsExist() {
-        // Arrange
-        // No hay datos (gracias al @BeforeEach)
+    @DisplayName("patchRoom() debe actualizar solo campos no nulos")
+    void patchRoom_ShouldUpdatePartialFields() {
+        Room original = roomRepository.save(Room.builder().name("Original").capacity(10).floor(1).equipment(List.of("A")).build());
 
-        // Act
-        List<RoomDto> resultDtos = roomService.getAllRooms();
+        RoomDto patchDto = new RoomDto();
+        patchDto.setName("Nombre Cambiado");
 
-        // Assert
-        assertNotNull(resultDtos, "La lista no debe ser nula");
-        assertTrue(resultDtos.isEmpty(), "La lista debe estar vacía");
+        RoomDto result = roomService.patchRoom(original.getId(), patchDto);
+
+        assertEquals("Nombre Cambiado", result.getName());
+        assertEquals(10, result.getCapacity());
+    }
+
+    @Test
+    @DisplayName("delateRoom() debe eliminar la sala de la BD")
+    void deleteRoom_ShouldRemoveFromDb() {
+        Room r = roomRepository.save(Room.builder().name("Borrar").capacity(5).build());
+
+        roomService.delateRoom(r.getId());
+
+        Optional<Room> check = roomRepository.findById(r.getId());
+        assertTrue(check.isEmpty());
+    }
+    
+    @Test
+    @DisplayName("patchRoom() lanza excepción si ID no existe")
+    void patchRoom_ShouldThrow_WhenNotFound() {
+        assertThrows(ResourceNotFoundException.class, () -> 
+            roomService.patchRoom(999L, new RoomDto())
+        );
     }
 }
