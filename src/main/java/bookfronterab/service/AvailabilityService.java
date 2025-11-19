@@ -13,111 +13,101 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Servicio para calcular la disponibilidad de salas para el endpoint público.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AvailabilityService {
 
-    private static final LocalTime START_HOUR = LocalTime.of(8, 0);
-    private static final LocalTime END_HOUR = LocalTime.of(18, 0);
-    private static final int SLOT_DURATION_MINUTES = 60; // Bloques de 1 hora
-    private static final DateTimeFormatter SLOT_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
-
     private final RoomRepository roomRepo;
     private final ReservationRepository reservationRepo;
-    private final TimeService timeService; // Para obtener la zona horaria correcta
+    private final TimeService timeService;
 
-    /**
-     * Calcula la disponibilidad de todas las salas para una fecha específica.
-     *
-     * @param date La fecha para la cual calcular la disponibilidad.
-     * @return Un DTO {@link AvailabilityDto.DailyAvailabilityResponse}
-     * que contiene las listas 'rooms', 'slots', y 'availability' (matriz).
-     */
     public AvailabilityDto.DailyAvailabilityResponse getDailyAvailability(LocalDate date) {
-
-        // 1. Obtener todas las salas y mapearlas a RoomDto
+        // Obtener todas las salas
         List<RoomDto> rooms = roomRepo.findAll().stream()
                 .map(this::mapRoomToDto)
                 .collect(Collectors.toList());
 
-        // 2. Generar la lista de bloques horarios (slots)
+        // Generar la lista de bloques horarios (AHORA PERSONALIZADA)
         List<AvailabilityDto.TimeSlotDto> slots = generateTimeSlots();
 
-        // 3. Obtener el rango de tiempo completo para el día en la zona horaria de la app
+        // Obtener rango del día
         ZonedDateTime startOfDay = date.atStartOfDay(timeService.zone());
         ZonedDateTime endOfDay = date.plusDays(1).atStartOfDay(timeService.zone());
 
-        // 4. Obtener TODAS las reservas del día en 1 consulta
+        // Obtener reservas
         List<Reservation> allReservationsForDay = reservationRepo.findAllReservationsBetween(startOfDay, endOfDay);
 
-        // 5. Agrupar reservas por ID de sala para búsqueda rápida (en memoria)
+        // Agrupar reservas
         Map<Long, List<Reservation>> reservationsByRoomId = allReservationsForDay.stream()
                 .collect(Collectors.groupingBy(r -> r.getRoom().getId()));
 
         log.info("Calculando disponibilidad para {} salas y {} reservas en {}", rooms.size(), allReservationsForDay.size(), date);
 
-        // 6. Construir la "matriz" de disponibilidad (List<AvailabilityMatrixItemDto>)
+        // Construir matriz
         List<AvailabilityDto.AvailabilityMatrixItemDto> availabilityMatrix = new ArrayList<>();
 
         for (RoomDto room : rooms) {
-            List<Reservation> roomReservations = reservationsByRoomId.getOrDefault(Long.valueOf(room.getId()), List.of());
+            List<Reservation> roomReservations = reservationsByRoomId.getOrDefault(room.getId(), List.of());
 
             for (AvailabilityDto.TimeSlotDto slot : slots) {
-                // Convertir el slot a ZonedDateTime para comparar
                 ZonedDateTime slotStartAt = ZonedDateTime.of(date, LocalTime.parse(slot.getStart()), timeService.zone());
                 ZonedDateTime slotEndAt = ZonedDateTime.of(date, LocalTime.parse(slot.getEnd()), timeService.zone());
 
-                // Lógica de conflicto: ¿Hay alguna reserva que se solape con este slot?
                 boolean isOccupied = roomReservations.stream().anyMatch(
                         res -> res.getStartAt().isBefore(slotEndAt) && res.getEndAt().isAfter(slotStartAt)
                 );
 
                 availabilityMatrix.add(new AvailabilityDto.AvailabilityMatrixItemDto(
-                        String.valueOf(room.getId()), // ID de sala como String (como espera el frontend)
+                        String.valueOf(room.getId()),
                         slot.getId(),
-                        !isOccupied // !isOccupied = isAvailable
+                        !isOccupied
                 ));
             }
         }
 
-        // 7. Devolver el DTO contenedor con las 3 listas
         return new AvailabilityDto.DailyAvailabilityResponse(rooms, slots, availabilityMatrix);
     }
 
     /**
-     * Genera la lista de bloques horarios (slots) para el día.
+     * Genera los bloques horarios específicos de la UFRO según intranet.
      */
     private List<AvailabilityDto.TimeSlotDto> generateTimeSlots() {
         List<AvailabilityDto.TimeSlotDto> slots = new ArrayList<>();
-        LocalTime currentTime = START_HOUR;
 
-        while (currentTime.isBefore(END_HOUR)) {
-            LocalTime slotEnd = currentTime.plusMinutes(SLOT_DURATION_MINUTES);
+        // Formato: Hora Inicio, Hora Fin, Etiqueta (Periodo)
+        addSlot(slots, "08:30", "09:30", "1°");
+        addSlot(slots, "09:40", "10:40", "2°");
+        addSlot(slots, "10:50", "11:50", "3°");
+        addSlot(slots, "12:00", "13:00", "4°");
+        addSlot(slots, "13:10", "14:10", "Alm.");
+        addSlot(slots, "14:30", "15:30", "5°");
+        addSlot(slots, "15:40", "16:40", "6°");
+        addSlot(slots, "16:50", "17:50", "7°");
+        addSlot(slots, "18:00", "19:00", "8°");
+        addSlot(slots, "19:10", "20:10", "9°");
+        addSlot(slots, "20:20", "21:20", "10°");
 
-            String startTimeStr = currentTime.format(SLOT_FORMATTER);
-            String endTimeStr = slotEnd.format(SLOT_FORMATTER);
-            String slotId = String.format("%s-%s", startTimeStr, endTimeStr);
-            String slotLabel = String.format("%s - %s", startTimeStr, endTimeStr);
-
-            slots.add(new AvailabilityDto.TimeSlotDto(slotId, slotLabel, startTimeStr, endTimeStr));
-            currentTime = slotEnd;
-        }
         return slots;
     }
 
     /**
-     * Convierte una entidad {@link Room} a su DTO.
+     * auxiliar para agregar slots a la lista de forma limpia.
      */
+    private void addSlot(List<AvailabilityDto.TimeSlotDto> list, String start, String end, String periodName) {
+        // Manteniene el ID como "HH:mm-HH:mm" para que el frontend lo ordene correctamente
+        String id = String.format("%s-%s", start, end);
+        // El label combina el nombre del periodo y la hora para que el usuario lo vea claro
+        String label = String.format("%s (%s-%s)", periodName, start, end);
+
+        list.add(new AvailabilityDto.TimeSlotDto(id, label, start, end));
+    }
+
     private RoomDto mapRoomToDto(Room room) {
         return RoomDto.builder()
                 .id(room.getId())
