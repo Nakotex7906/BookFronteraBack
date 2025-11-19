@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.List;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -63,12 +63,31 @@ public class ReservationController {
     @DeleteMapping("/reservations/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancel(@PathVariable Long id,
-                       @AuthenticationPrincipal OAuth2User principal,
-                       @RequestHeader(value = "X-Is-Admin", defaultValue = "false") boolean isAdmin) {
+                       @AuthenticationPrincipal OAuth2User principal)
+                        {
         if (principal == null) {
             throw new SecurityException("No estás autenticado.");
         }
         String userEmail = principal.getAttribute("email");
-        reservationService.cancel(id, userEmail, isAdmin);
+        reservationService.cancel(id, userEmail);
+    }
+    /**
+     * Endpoint para que el ADMIN vea las reservas de una sala específica.
+     * Útil para gestionar conflictos o ver disponibilidad.
+     */
+    @GetMapping("/room/{roomId}")
+    @ResponseStatus(HttpStatus.OK)
+    public List<ReservationDto.Detail> getByRoom(
+            @PathVariable Long roomId,
+            @AuthenticationPrincipal OAuth2User principal) {
+
+        if (principal == null) {
+            throw new SecurityException("No estás autenticado.");
+        }
+
+        String userEmail = principal.getAttribute("email");
+
+        // Llamamos al nuevo método del serv
+        return reservationService.getReservationsByRoom(roomId, userEmail);
     }
 }

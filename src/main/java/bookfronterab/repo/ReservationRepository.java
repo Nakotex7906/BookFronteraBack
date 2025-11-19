@@ -55,4 +55,11 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
      */
     List<Reservation> findByUserEmailOrderByStartAtAsc(String userEmail);
 
+    long countByUserEmailAndStartAtBetween(String email, ZonedDateTime start, ZonedDateTime end);
+    /**
+     * Busca todas las reservas de una sala específica, ordenadas por fecha.
+     * Útil para que el Admin vea el calendario de una sala.
+     */
+    List<Reservation> findByRoomIdOrderByStartAtAsc(Long roomId);
+
 }
