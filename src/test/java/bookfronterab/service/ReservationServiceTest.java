@@ -371,7 +371,7 @@ class ReservationServiceTest {
 
         // Act
         // El dueño (testUser) cancela su propia reserva
-        reservationService.cancel(res.getId(), testUser.getEmail(), false);
+        reservationService.cancel(res.getId(), testUser.getEmail());
 
         // Assert
         assertEquals(0, reservationRepository.count(), "La reserva debió ser borrada de la BBDD");
@@ -392,7 +392,7 @@ class ReservationServiceTest {
 
         // Act
         // 'adminUser' (marcado como isAdmin=true) cancela la reserva
-        reservationService.cancel(res.getId(), adminUser.getEmail(), true);
+        reservationService.cancel(res.getId(), adminUser.getEmail());
 
         // Assert
         assertEquals(0, reservationRepository.count(), "El admin debió poder borrar la reserva");
@@ -412,7 +412,7 @@ class ReservationServiceTest {
         // Act & Assert
         // 'adminUser' (pero con isAdmin=false) intenta cancelar la reserva
         Exception e = assertThrows(SecurityException.class, () -> {
-            reservationService.cancel(res.getId(), adminUser.getEmail(), false);
+            reservationService.cancel(res.getId(), adminUser.getEmail());
         });
         
         assertEquals("No tienes permiso para cancelar esta reserva. Solo el dueño o un administrador pueden hacerlo.", e.getMessage());
