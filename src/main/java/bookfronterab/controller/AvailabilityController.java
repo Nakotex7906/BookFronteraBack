@@ -33,13 +33,14 @@ public class AvailabilityController {
      */
     @GetMapping
     public AvailabilityDto.DailyAvailabilityResponse getDailyAvailability(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) String dateString) {
+            // Agregamos (value = "date") para conectar con ?date=... del frontend
+            @RequestParam(value = "date", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) String dateString) {
 
         LocalDate date;
         if (dateString != null && !dateString.isEmpty()) {
             date = LocalDate.parse(dateString);
         } else {
-            // Si no se provee fecha, usa "hoy" en la zona horaria de la app
             date = LocalDate.now(timeService.zone());
         }
 

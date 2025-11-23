@@ -131,41 +131,42 @@ public class ReservationService {
     }
 
     /**
-     * ayuda para validar los datos de entrada de la petición de reserva.
+     * Valida los datos de entrada de la petición de reserva.
+     * Permite reservar "bloques actuales" siempre que la reserva no haya finalizado.
      *
-     * @param req El DTO de creación.
-     * @throws IllegalArgumentException Si los datos son inválidos.
+     * @param req El DTO de creación con las fechas de inicio y fin.
+     * @throws IllegalArgumentException Si las fechas son nulas, incoherentes o violan las reglas de negocio.
      */
     private void validateReservationRequest(ReservationDto.CreateRequest req) {
         if (req.startAt() == null || req.endAt() == null) {
             throw new IllegalArgumentException("Las fechas de inicio y fin no pueden ser nulas.");
         }
+
         if (!req.startAt().isBefore(req.endAt())) {
             throw new IllegalArgumentException("La fecha de inicio debe ser anterior a la fecha de fin.");
         }
-        // Validar que no sea en el pasado
-        // Usamos ZonedDateTime.now() para comparar con el momento actual
-        if (req.startAt().isBefore(ZonedDateTime.now())) {
-            throw new IllegalArgumentException("No se pueden crear reservas en el pasado.");
+
+        ZonedDateTime now = ZonedDateTime.now();
+
+        if (req.endAt().isBefore(now)) {
+            throw new IllegalArgumentException("No se pueden crear reservas para un horario que ya ha finalizado.");
         }
 
-        // 4. Validar duración mínima (Ej: 15 minutos)
-        // Importar: java.time.temporal.ChronoUnit
+        // Validar duración mínima (Ej: 15 minutos)
         long durationMinutes = java.time.temporal.ChronoUnit.MINUTES.between(req.startAt(), req.endAt());
         if (durationMinutes < 15) {
             throw new IllegalArgumentException("La reserva es muy corta. La duración mínima es de 15 minutos.");
         }
 
-        // 5. Validar duración máxima (Ej: 1 horas) - Opcional, para evitar bloqueos de día completo por error
-        if (durationMinutes > 60) { // 1h
-            throw new IllegalArgumentException("La reserva excede el tiempo permitido (máximo 4 horas).");
+        // Validar duración máxima (Ej: 1 hora)
+        if (durationMinutes > 60) {
+            throw new IllegalArgumentException("La reserva excede el tiempo permitido (máximo 1 hora).");
         }
 
-        // 6. Validar antelación máxima (Ej: No reservar con más de 3 meses de adelanto)
-        if (req.startAt().isAfter(ZonedDateTime.now().plusWeeks(1))) {
+        // 5. Validar antelación máxima 3 meses
+        if (req.startAt().isAfter(now.plusMonths(3))) {
             throw new IllegalArgumentException("No se pueden realizar reservas con más de 3 meses de antelación.");
         }
-        // TODO: Añadir más validaciones (ej. tiempo mínimo de reserva, máximo de antelación, etc.)
     }
 
     /**
