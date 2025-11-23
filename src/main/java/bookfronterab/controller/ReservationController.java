@@ -12,6 +12,7 @@ import java.util.List;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class ReservationController {
+    public static final String EMAIL = "email";
 
     private final ReservationService reservationService;
 
@@ -26,7 +27,7 @@ public class ReservationController {
         if (principal == null) {
             throw new SecurityException("No estás autenticado.");
         }
-        String userEmail = principal.getAttribute("email");
+        String userEmail = principal.getAttribute(EMAIL);
         reservationService.create(userEmail, req);
     }
 
@@ -44,7 +45,7 @@ public class ReservationController {
         if (principal == null) {
             throw new SecurityException("No estás autenticado.");
         }
-        String userEmail = principal.getAttribute("email");
+        String userEmail = principal.getAttribute(EMAIL);
         return reservationService.getMyReservations(userEmail);
     }
 
@@ -68,7 +69,7 @@ public class ReservationController {
         if (principal == null) {
             throw new SecurityException("No estás autenticado.");
         }
-        String userEmail = principal.getAttribute("email");
+        String userEmail = principal.getAttribute(EMAIL);
         reservationService.cancel(id, userEmail);
     }
     /**
@@ -85,7 +86,7 @@ public class ReservationController {
             throw new SecurityException("No estás autenticado.");
         }
 
-        String userEmail = principal.getAttribute("email");
+        String userEmail = principal.getAttribute(EMAIL);
 
         // Llamamos al nuevo método del serv
         return reservationService.getReservationsByRoom(roomId, userEmail);

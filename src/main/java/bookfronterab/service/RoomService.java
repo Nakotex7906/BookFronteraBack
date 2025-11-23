@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional; // <-- 1. IMPORTA ESTO
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +25,7 @@ public class RoomService {
         return roomRepo.findAll()
                 .stream()
                 .map(this::mapToDto) // Ahora la sesión sigue abierta aquí
-                .collect(Collectors.toList());
+                .toList();
     } // <-- La sesión se cierra aquí (después del mapeo)
 
     public RoomDto createRoom(RoomDto roomDto) {

@@ -23,13 +23,13 @@ public class RoomController {
     }
 
     @PostMapping
-    public ResponseEntity<RoomDto> createFood(@Valid @RequestBody RoomDto roomDto) {
+    public ResponseEntity<RoomDto> createRoom(@Valid @RequestBody RoomDto roomDto) {
         RoomDto newRoom = roomService.createRoom(roomDto);
         return new ResponseEntity<>(newRoom, HttpStatus.CREATED); // 201 Created
     }
 
     @DeleteMapping("{id}")
-    public ResponseEntity<?> deleteRoom(@PathVariable Long id) {
+    public ResponseEntity<HttpStatus> deleteRoom(@PathVariable Long id) {
         roomService.delateRoom(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }

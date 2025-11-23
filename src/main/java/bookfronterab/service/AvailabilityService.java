@@ -31,7 +31,7 @@ public class AvailabilityService {
         // Obtener todas las salas
         List<RoomDto> rooms = roomRepo.findAll().stream()
                 .map(this::mapRoomToDto)
-                .collect(Collectors.toList());
+                .toList();
 
         // Generar la lista de bloques horarios (AHORA PERSONALIZADA)
         List<AvailabilityDto.TimeSlotDto> slots = generateTimeSlots();

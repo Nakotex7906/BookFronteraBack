@@ -1,6 +1,5 @@
 package bookfronterab.repo;
 
-import bookfronterab.dto.RoomDto;
 import bookfronterab.model.Room;
 import org.springframework.data.jpa.repository.JpaRepository;
 import jakarta.persistence.LockModeType;
