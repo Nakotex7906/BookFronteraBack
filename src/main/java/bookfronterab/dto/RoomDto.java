@@ -17,4 +17,5 @@ public class RoomDto {
     private int capacity;
     private List<String> equipment;
     private int floor;
+    private String imageUrl;
 }

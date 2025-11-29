@@ -73,4 +73,8 @@ public class Room {
      * El número del piso (planta) en el que se ubica la sala.
      */
     private int floor;
+
+    @Column(name = "image_url")
+    private String imageUrl;
+
 }
