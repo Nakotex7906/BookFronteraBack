@@ -1,9 +1,10 @@
 package bookfronterab.config;
 
-import bookfronterab.service.google.CustomOAuth2UserService;
+import bookfronterab.service.google.CustomOidcUserService; // <-- IMPORTACIÓN EL NUEVO SERVICIO
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
@@ -16,10 +17,13 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final CustomOAuth2UserService customOauth2UserService;
+    // Inyección el nuevo servicio OIDC
+    private final CustomOidcUserService customOidcUserService;
+
     private final CustomAuthenticationSuccessHandler authenticationSuccessHandler;
     private final CustomAuthenticationFailureHandler authenticationFailureHandler;
 
@@ -27,24 +31,24 @@ public class SecurityConfig {
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfig()))
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**").disable())
+                .csrf(csrf -> csrf.disable()) // Manteneter desactivado si se ocupa postman
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
+
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/",                // raíz
-                                "/.well-known/**",  // evita warnings del navegador/DevTools
-                                "/favicon.ico",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/api/v1", "/api/v1/", // índice de la API
-                                "/api/v1/availability/**", // Permite ver disponibilidad sin login
-                                "/h2-console/**"    // Consola H2
+                                "/", "/.well-known/**", "/favicon.ico", "/swagger-ui/**", "/v3/api-docs/**",
+                                "/api/v1", "/api/v1/", "/api/v1/availability/**", "/h2-console/**", "/api/v1/auth-debug"
                         ).permitAll()
+
+                        // REGLA CRÍTICA para proteger endpoints de rooms
+                        .requestMatchers("/api/v1/rooms/**").hasRole("ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth
                         .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOauth2UserService)
+                                // Usar oidcUserService para Google
+                                .oidcUserService(customOidcUserService)
                         )
                         .successHandler(authenticationSuccessHandler)
                         .failureHandler(authenticationFailureHandler)
@@ -54,12 +58,10 @@ public class SecurityConfig {
                         .logoutSuccessUrl("http://localhost:5173")
                         .invalidateHttpSession(true)
                         .deleteCookies("JSESSIONID")
-                )
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable());
+                );
+
         return http.build();
     }
-
     @Bean
     CorsConfigurationSource corsConfig() {
         CorsConfiguration cfg = new CorsConfiguration();
@@ -72,4 +74,3 @@ public class SecurityConfig {
         return source;
     }
 }
-
