@@ -7,6 +7,7 @@ import bookfronterab.repo.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional; // <-- 1. IMPORTA ESTO
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -15,6 +16,7 @@ import java.util.List;
 public class RoomService {
 
     private final RoomRepository roomRepo;
+    private final CloudinaryService cloudinaryService;
 
     /**
      * Obtiene todas las salas y las convierte a DTOs.
@@ -28,15 +30,29 @@ public class RoomService {
                 .toList();
     } // <-- La sesión se cierra aquí (después del mapeo)
 
-    public RoomDto createRoom(RoomDto roomDto) {
+    public RoomDto createRoom(RoomDto roomDto, MultipartFile imageFile) {
+        String imageUrl = null;
+
+        // Subir imagen si existe
+        if (imageFile != null && !imageFile.isEmpty()) {
+            try {
+                imageUrl = cloudinaryService.uploadFile(imageFile);
+            } catch (Exception e) {
+                throw new RuntimeException("Error al subir imagen a Cloudinary", e);
+            }
+        }
+
+        // 2. Crear entidad
         Room room = Room.builder()
                 .name(roomDto.getName())
                 .capacity(roomDto.getCapacity())
                 .equipment(roomDto.getEquipment())
                 .floor(roomDto.getFloor())
+                .imageUrl(imageUrl)
                 .build();
+
         room = roomRepo.save(room);
-        return mapToDto(room);
+        return mapToDto(room); // Asegúrate que mapToDto incluya el imageUrl de vuelta
     }
 
     public void delateRoom(Long roomId) {
@@ -77,12 +93,6 @@ public class RoomService {
         return mapToDto(updateRoom);
     }
 
-
-
-
-
-
-
     /**
      * mapea la entidad Room al RoomDto.
      */
@@ -93,6 +103,7 @@ public class RoomService {
                 .capacity(room.getCapacity())
                 .equipment(room.getEquipment()) // <-- Esto ya no fallará
                 .floor(room.getFloor())
+                .imageUrl(room.getImageUrl())
                 .build();
     }
 }

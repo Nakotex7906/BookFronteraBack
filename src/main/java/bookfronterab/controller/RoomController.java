@@ -5,9 +5,11 @@ import bookfronterab.service.RoomService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -25,9 +27,12 @@ public class RoomController {
         return roomService.getAllRooms();
     }
 
-    @PostMapping
-    public ResponseEntity<RoomDto> createRoom(@Valid @RequestBody RoomDto roomDto) {
-        RoomDto newRoom = roomService.createRoom(roomDto);
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<RoomDto> createRoom(
+            @RequestPart("room") @Valid RoomDto roomDto,
+            @RequestPart(value = "image", required = false) MultipartFile image
+    ) {
+        RoomDto newRoom = roomService.createRoom(roomDto, image);
         return new ResponseEntity<>(newRoom, HttpStatus.CREATED);
     }
 

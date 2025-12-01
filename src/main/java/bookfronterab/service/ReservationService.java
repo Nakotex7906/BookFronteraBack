@@ -391,6 +391,7 @@ public class ReservationService {
                 .capacity(room.getCapacity())
                 .equipment(room.getEquipment())
                 .floor(room.getFloor())
+                .imageUrl(room.getImageUrl())
                 .build();
     }
 
