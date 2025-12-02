@@ -108,6 +108,28 @@ public class ReservationService {
             log.info("Usuario no solicitó añadir la reserva {} a Google Calendar. Omitiendo.", savedReservation.getId());
         }
     }
+    @Transactional
+    public void createOnBehalf(String userEmail, String othersEmail, ReservationDto.CreateRequest req){
+        //  Validación y búsqueda de User/Room
+        validateReservationRequest(req);
+        Room room = roomRepo.findByIdWithLock(req.roomId()) // Usando el bloqueo pesimista
+                .orElseThrow(() -> new IllegalArgumentException("Sala no encontrada: " + req.roomId()));
+        User other = userRepo.findByEmail(othersEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + othersEmail));
+        // 3. Validar disponibilidad
+        checkAvailability(req.roomId(), req.startAt(), req.endAt());
+        // 4. Crear y guardar la reserva SIN EL ID DE GOOGLE
+        Reservation reservation = Reservation.builder()
+                .user(other)
+                .room(room)
+                .startAt(req.startAt())
+                .endAt(req.endAt())
+                .build();
+
+        Reservation savedReservation = reservationRepo.save(reservation);
+        log.info("Reserva {} creada (localmente) por {} para usuario {}", savedReservation.getId(), userEmail,othersEmail);
+        log.info("Las reserva {} es en nombre de otra persona y no se añade a google calendar", savedReservation.getId());
+    }
 
     /**
      * ayuda para validar la lógica de negocio y disponibilidad.
