@@ -1,7 +1,6 @@
 package bookfronterab.service;
 
 import bookfronterab.dto.RoomDto;
-import bookfronterab.exception.ResourceNotFoundException;
 import bookfronterab.model.Room;
 import bookfronterab.repo.RoomRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,15 +22,16 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * Pruebas de integración para RoomService.
- * Verifica CRUD completo contra base de datos real.
+ * Verifica CRUD completo contra base de datos real (Testcontainers)
+ * y mockea el servicio externo de Cloudinary.
  */
 @Testcontainers
 @SpringBootTest
-class RoomServiceTest {
+class RoomServiceIntegrationTest {
 
     @Container
     public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
@@ -50,6 +50,8 @@ class RoomServiceTest {
 
     @Autowired private RoomService roomService;
     @Autowired private RoomRepository roomRepository;
+
+    // Se Mockea Cloudinary para no hacer subidas reales durante los tests
     @MockitoBean
     private CloudinaryService cloudinaryService;
 
@@ -57,7 +59,7 @@ class RoomServiceTest {
     void setUp() {
         roomRepository.deleteAllInBatch();
     }
-
+    //MODIFICACIÓN PARA SOPORTAR IMAGENES
     @Test
     @DisplayName("createRoom() con imagen debe guardar la URL devuelta por Cloudinary")
     void createRoom_WithImage_ShouldSaveUrl() throws IOException {
@@ -82,8 +84,9 @@ class RoomServiceTest {
 
         assertNotNull(response.getId());
         assertEquals("Sala Con Imagen", response.getName());
-        assertEquals(fakeUrl, response.getImageUrl());
+        assertEquals(fakeUrl, response.getImageUrl()); // Verificamos que se guardó la URL
 
+        // Verificación en base de datos real
         Optional<Room> saved = roomRepository.findById(response.getId());
         assertTrue(saved.isPresent());
         assertEquals(fakeUrl, saved.get().getImageUrl());
@@ -99,6 +102,63 @@ class RoomServiceTest {
         assertNotNull(response.getId());
         assertNull(response.getImageUrl());
     }
+    @Test
+    @DisplayName("patchRoom() debe actualizar datos parciales e imagen si se provee")
+    void patchRoom_ShouldUpdatePartialDataAndImage() throws IOException {
+        // 1. Creación de sala inicial
+        Room original = roomRepository.save(Room.builder()
+                .name("Sala Original")
+                .capacity(5)
+                .floor(1)
+                .imageUrl("http://old-url.com")
+                .build());
+
+        // 2. Preparación de la Request de actualización (Solo se cambia nombre)
+        RoomDto patchRequest = RoomDto.builder()
+                .name("Sala Actualizada")
+                .build();
+
+        // 3. Se prepara una nueva imagen
+        MockMultipartFile newImage = new MockMultipartFile(
+                "image", "new.jpg", "image/jpeg", "new-content".getBytes()
+        );
+        String newUrl = "http://new-url.com/img.jpg";
+        when(cloudinaryService.uploadFile(any())).thenReturn(newUrl);
+
+        // 4. Se ejecuta la consulta patch
+        RoomDto updated = roomService.patchRoom(original.getId(), patchRequest, newImage);
+
+        // 5. Assertions
+        assertEquals("Sala Actualizada", updated.getName()); // el nombre cambió
+        assertEquals(5, updated.getCapacity()); // Capacidad se mantuvo igual (porque enviamos 0 en el DTO)
+        assertEquals(newUrl, updated.getImageUrl()); // la URL cambió
+
+        // Se verifica en la BD
+        Room inDb = roomRepository.findById(original.getId()).orElseThrow();
+        assertEquals("Sala Actualizada", inDb.getName());
+        assertEquals(newUrl, inDb.getImageUrl());
+    }
+
+    @Test
+    @DisplayName("patchRoom() sin imagen no debe borrar la URL existente")
+    void patchRoom_WithoutImage_ShouldKeepExistingUrl() {
+        // 1. Creación de sala con imagen
+        Room original = roomRepository.save(Room.builder()
+                .name("Sala X")
+                .imageUrl("http://keep-this-url.com")
+                .build());
+
+        // 2. Patch solo con el nombre
+        RoomDto patchRequest = RoomDto.builder().name("Sala Y").build();
+
+        // 3. Ejecución sin un archivo que contenga imagen
+        RoomDto updated = roomService.patchRoom(original.getId(), patchRequest, null);
+
+        // 4. Verificación de que la URL sigue ahí
+        assertEquals("Sala Y", updated.getName());
+        assertEquals("http://keep-this-url.com", updated.getImageUrl());
+    }
+    //FIN DE LAS MODIFICACIONES
 
     @Test
     @DisplayName("getAllRooms debe devolver lista de salas")
