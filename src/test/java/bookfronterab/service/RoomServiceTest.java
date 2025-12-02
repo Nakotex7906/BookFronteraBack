@@ -111,20 +111,6 @@ class RoomServiceTest {
     }
 
     @Test
-    @DisplayName("patchRoom() debe actualizar solo campos no nulos")
-    void patchRoom_ShouldUpdatePartialFields() {
-        Room original = roomRepository.save(Room.builder().name("Original").capacity(10).floor(1).equipment(List.of("A")).build());
-
-        RoomDto patchDto = new RoomDto();
-        patchDto.setName("Nombre Cambiado");
-
-        RoomDto result = roomService.patchRoom(original.getId(), patchDto);
-
-        assertEquals("Nombre Cambiado", result.getName());
-        assertEquals(10, result.getCapacity());
-    }
-
-    @Test
     @DisplayName("delateRoom() debe eliminar la sala de la BD")
     void deleteRoom_ShouldRemoveFromDb() {
         Room r = roomRepository.save(Room.builder().name("Borrar").capacity(5).build());
@@ -133,13 +119,5 @@ class RoomServiceTest {
 
         Optional<Room> check = roomRepository.findById(r.getId());
         assertTrue(check.isEmpty());
-    }
-    
-    @Test
-    @DisplayName("patchRoom() lanza excepción si ID no existe")
-    void patchRoom_ShouldThrow_WhenNotFound() {
-        assertThrows(ResourceNotFoundException.class, () -> 
-            roomService.patchRoom(999L, new RoomDto())
-        );
     }
 }

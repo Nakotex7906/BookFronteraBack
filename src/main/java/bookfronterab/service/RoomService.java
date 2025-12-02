@@ -59,7 +59,7 @@ public class RoomService {
         roomRepo.deleteById(roomId);
     }
 
-    public RoomDto patchRoom(Long id, RoomDto roomDto) {
+    public RoomDto patchRoom(Long id, RoomDto roomDto, MultipartFile imageFile) {
         Room existingRoom = roomRepo.findById(id).
                 orElseThrow(() -> new ResourceNotFoundException("Sala no encontrada con el id " + id));
 
@@ -75,9 +75,17 @@ public class RoomService {
         if (roomDto.getEquipment() != null) {
             existingRoom.setEquipment(roomDto.getEquipment());
         }
+        if (imageFile != null && !imageFile.isEmpty()) {
+            try {
+                String newUrl = cloudinaryService.uploadFile(imageFile);
+                existingRoom.setImageUrl(newUrl);
+            } catch (Exception e) {
+                throw new RuntimeException("Error al actualizar imagen en Cloudinary", e);
+            }
+        }
+
         Room updateRoom = roomRepo.save(existingRoom);
         return mapToDto(updateRoom);
-
     }
 
     public RoomDto putRoom(Long id, RoomDto roomDto) {
