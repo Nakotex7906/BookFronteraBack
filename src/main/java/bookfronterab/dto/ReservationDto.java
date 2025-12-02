@@ -23,6 +23,12 @@ public class ReservationDto {
             ZonedDateTime endAt,
             boolean addToGoogleCalendar
     ) {}
+    public record CreateOnBehalfRequest(
+       Long roomId,
+       ZonedDateTime startAt,
+       ZonedDateTime endAt,
+       String othersEmail
+    ){}
 
     /**
      * DTO para enviar los detalles completos de una reserva al frontend.
