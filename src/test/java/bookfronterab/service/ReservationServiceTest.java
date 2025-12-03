@@ -30,6 +30,7 @@ import java.time.DayOfWeek;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -520,7 +521,7 @@ class ReservationServiceTest {
     @DisplayName("createOnBehalf debería fallar si el usuario no existe")
     void createOnBehalf_ShouldFail_WhenUserDoesNotExist(){
         User user = new User(null,"admin@example.com","root",UserRole.ADMIN,ZonedDateTime.now().toOffsetDateTime(),null,null,null);
-        Room room = new Room(null,"test",4,new ArrayList<>(),1,"");
+        Room room = new Room(null,"test",4,new ArrayList<String>(),1,"");
         userRepository.save(user);
         roomRepository.save(room);
         ZonedDateTime zdt = nextMonday.withHour(18);
