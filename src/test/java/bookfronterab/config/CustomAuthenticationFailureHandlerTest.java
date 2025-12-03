@@ -20,11 +20,15 @@ import org.springframework.security.web.RedirectStrategy;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CustomAuthenticationFailureHandlerTest {
@@ -49,28 +53,67 @@ class CustomAuthenticationFailureHandlerTest {
     }
 
     @Test
-    @DisplayName("Debe redirigir con mensaje por defecto si la excepción es genérica")
-    void onAuthenticationFailure_ShouldUseDefaultMessage_ForGenericException() throws IOException, ServletException {
+    @DisplayName("Debe redirigir con el mensaje de la excepción genérica cuando está presente")
+    void onAuthenticationFailure_ShouldUseExceptionMessage_ForGenericException() throws IOException, ServletException {
         // Arrange
-        AuthenticationException genericException = new BadCredentialsException("Credenciales malas");
-
+        final String EXPECTED_RAW_MESSAGE = "Credenciales malas. Por favor, verifica tus datos."; // Mensaje real de la excepción
+        AuthenticationException genericException = new BadCredentialsException(EXPECTED_RAW_MESSAGE);
+        
         // Act
         failureHandler.onAuthenticationFailure(request, response, genericException);
 
         // Assert
-        // Verificamos que se llamó a sendRedirect en nuestra estrategia
         verify(redirectStrategy).sendRedirect(eq(request), eq(response), urlCaptor.capture());
-
         String redirectUrl = urlCaptor.getValue();
+
+        // 1. Verificar la URL base
+        assertTrue(redirectUrl.startsWith("http://localhost:5173/login?"), "La URL debe apuntar a la página de login.");
+
+        // 2. Extraer y Decodificar el parámetro 'error'
+        Pattern pattern = Pattern.compile("error=(.*)");
+        Matcher matcher = pattern.matcher(redirectUrl);
+
+        assertTrue(matcher.find(), "La URL debe contener el parámetro 'error'.");
         
-        // Verificamos la URL base
-        assertTrue(redirectUrl.startsWith("http://localhost:5173/login"));
+        String encodedErrorMessage = matcher.group(1); 
         
-        // Verificamos el mensaje por defecto (codificado)
-        // El mensaje esperado es: "Error de autenticación. Por favor, inténtalo de nuevo."
-        // Al estar codificado, los espacios suelen ser '+' o '%20'
-        assertTrue(redirectUrl.contains("error=Error+de+autenticaci%C3%B3n"), 
-                   "La URL debe contener el mensaje por defecto codificado");
+        // Usamos el nombre de clase correcto (URLDecoder) para el método estático
+        String actualDecodedMessage = URLDecoder.decode(encodedErrorMessage, StandardCharsets.UTF_8);
+
+        // 3. Usamos .trim() en ambos lados para ignorar cualquier whitespace
+        assertTrue(actualDecodedMessage.trim().equals(EXPECTED_RAW_MESSAGE.trim()), 
+                   "El mensaje decodificado debe ser el mensaje específico de la excepción.");
+    }
+
+    @Test
+    @DisplayName("Debe redirigir con el mensaje POR DEFECTO si la excepción no tiene mensaje válido")
+    void onAuthenticationFailure_ShouldUseDefaultMessage_WhenNoExceptionMessage() throws IOException, ServletException {
+        // Arrange
+        // Usamos una excepción que tenga un mensaje nulo o vacío
+        AuthenticationException mockException = mock(AuthenticationException.class);
+        when(mockException.getMessage()).thenReturn(null);
+        
+        final String EXPECTED_DEFAULT_MESSAGE = "Error de autenticación. Por favor, inténtalo de nuevo.";
+
+        // Act
+        failureHandler.onAuthenticationFailure(request, response, mockException);
+
+        // Assert
+        verify(redirectStrategy).sendRedirect(eq(request), eq(response), urlCaptor.capture());
+        String redirectUrl = urlCaptor.getValue();
+
+        // 1. Extraer y Decodificar
+        Pattern pattern = Pattern.compile("error=(.*)");
+        Matcher matcher = pattern.matcher(redirectUrl);
+
+        assertTrue(matcher.find(), "La URL debe contener el parámetro 'error'.");
+        
+        String encodedErrorMessage = matcher.group(1); 
+        String actualDecodedMessage = URLDecoder.decode(encodedErrorMessage, StandardCharsets.UTF_8);
+
+        // 2. Verificar el mensaje por defecto
+        assertTrue(actualDecodedMessage.trim().equals(EXPECTED_DEFAULT_MESSAGE.trim()), 
+                   "Debe usar el mensaje por defecto cuando el mensaje de la excepción es nulo.");
     }
 
     @Test
