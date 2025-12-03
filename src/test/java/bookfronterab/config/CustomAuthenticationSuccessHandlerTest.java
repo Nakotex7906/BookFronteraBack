@@ -1,6 +1,5 @@
 package bookfronterab.config;
 
-import bookfronterab.config.CustomAuthenticationSuccessHandler;
 import bookfronterab.model.User;
 import bookfronterab.model.UserRole;
 import bookfronterab.repo.UserRepository;
