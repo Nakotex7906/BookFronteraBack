@@ -17,9 +17,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional; // IMPORTANTE
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -57,10 +57,10 @@ class ReservationServiceTest {
     }
 
     // Mocks de servicios externos
-    @MockBean private GoogleCalendarService googleCalendarService;
-    @MockBean private GoogleCredentialsService googleCredentialsService;
-    @MockBean private TimeService timeService;
-    @MockBean private Credential mockCredential;
+    @MockitoBean private GoogleCalendarService googleCalendarService;
+    @MockitoBean private GoogleCredentialsService googleCredentialsService;
+    @MockitoBean private TimeService timeService;
+    @MockitoBean private Credential mockCredential;
 
     @Autowired private ReservationService reservationService;
     @Autowired private UserRepository userRepository;
@@ -134,8 +134,8 @@ class ReservationServiceTest {
         createTestReservation(testUser, testRoom, start, end);
 
         ReservationDto.CreateRequest request = createValidRequest(testRoom.getId(), start, end, false);
-
-        assertThrows(IllegalStateException.class, () -> reservationService.create(testUser.getEmail(), request));
+        String emailTestUser = testUser.getEmail();
+        assertThrows(IllegalStateException.class, () -> reservationService.create(emailTestUser, request));
     }
 
     @Test
@@ -180,9 +180,9 @@ class ReservationServiceTest {
         // Simplemente usamos un ID inexistente (999L) y el repo real devolverá vacío.
         
         ReservationDto.CreateRequest request = createValidRequest(999L, start, end, false);
-
+        String emailTestUser = testUser.getEmail();
         assertThrows(IllegalArgumentException.class, () -> 
-                reservationService.create(testUser.getEmail(), request));
+                reservationService.create(emailTestUser, request));
     }
 
     @Test
@@ -224,27 +224,27 @@ class ReservationServiceTest {
         ZonedDateTime pastEnd = nextMonday.minusMinutes(30); 
         
         ReservationDto.CreateRequest request = createValidRequest(testRoom.getId(), pastStart, pastEnd, false);
-        
+        String emailTestUser = testUser.getEmail();
         assertThrows(IllegalArgumentException.class, () -> 
-                reservationService.create(testUser.getEmail(), request));
+                reservationService.create(emailTestUser, request));
     }
 
     @Test
     @DisplayName("create() debe fallar si la duración es menor a 15 minutos")
     void create_ShouldFail_WhenDurationIsTooShort() {
         ReservationDto.CreateRequest request = createMinuteRequest(testRoom.getId(), 10);
-        
+        String emailTestUser = testUser.getEmail();
         assertThrows(IllegalArgumentException.class, () -> 
-                reservationService.create(testUser.getEmail(), request));
+                reservationService.create(emailTestUser, request));
     }
 
     @Test
     @DisplayName("create() debe fallar si la duración es mayor a 60 minutos")
     void create_ShouldFail_WhenDurationIsTooLong() {
         ReservationDto.CreateRequest request = createMinuteRequest(testRoom.getId(), 90);
-        
+        String emailTestUser = testUser.getEmail();
         assertThrows(IllegalArgumentException.class, () -> 
-                reservationService.create(testUser.getEmail(), request));
+                reservationService.create(emailTestUser, request));
     }
 
     @Test
@@ -254,9 +254,9 @@ class ReservationServiceTest {
         ZonedDateTime farFutureEnd = farFutureStart.plusHours(1);
         
         ReservationDto.CreateRequest request = createValidRequest(testRoom.getId(), farFutureStart, farFutureEnd, false);
-        
+        String emailTestUser = testUser.getEmail();
         assertThrows(IllegalArgumentException.class, () -> 
-                reservationService.create(testUser.getEmail(), request));
+                reservationService.create(emailTestUser, request));
     }
 
     // =================================================================================================
@@ -329,9 +329,10 @@ class ReservationServiceTest {
         ZonedDateTime start = nextMonday;
         ZonedDateTime end = nextMonday.plusHours(1);
         ReservationDto.CreateRequest request = createValidRequest(testRoom.getId(), start, end, false);
+        String emailAdmin = adminUser.getEmail();
 
         assertThrows(IllegalArgumentException.class, () -> 
-                reservationService.createOnBehalf(adminUser.getEmail(), "other@notfound.cl", request));
+                reservationService.createOnBehalf(emailAdmin, "other@notfound.cl", request));
     }
 
     // =================================================================================================
@@ -341,17 +342,20 @@ class ReservationServiceTest {
     @Test
     @DisplayName("cancel() debe fallar si la reserva no se encuentra")
     void cancel_ShouldFail_WhenReservationNotFound() {
+        String emailTestUser = testUser.getEmail();
         assertThrows(IllegalArgumentException.class, () -> 
-                reservationService.cancel(999L, testUser.getEmail()));
+                reservationService.cancel(999L, emailTestUser));
     }
 
     @Test
     @DisplayName("cancel() debe fallar si el usuario no es dueño ni Admin")
     void cancel_ShouldFail_IfNotOwnerOrAdmin() {
         Reservation res = createTestReservation(testUser, testRoom, nextMonday, nextMonday.plusHours(1));
+        Long resId = res.getId();
+        String emailOtherUser = otherUser.getEmail();
 
         assertThrows(SecurityException.class, () ->
-                reservationService.cancel(res.getId(), otherUser.getEmail()));
+                reservationService.cancel(resId, emailOtherUser));
     }
 
     @Test
@@ -368,9 +372,9 @@ class ReservationServiceTest {
     @DisplayName("cancel() debe fallar si el usuario solicitante no se encuentra")
     void cancel_ShouldFail_WhenRequestingUserNotFound() {
         Reservation res = createTestReservation(testUser, testRoom, nextMonday, nextMonday.plusHours(1));
-
+        Long resId = res.getId();
         assertThrows(IllegalStateException.class, () -> 
-                reservationService.cancel(res.getId(), "nonexistent@ufromail.cl"));
+                reservationService.cancel(resId, "nonexistent@ufromail.cl"));
     }
 
     @Test
@@ -436,8 +440,10 @@ class ReservationServiceTest {
     @Test
     @DisplayName("getReservationsByRoom() debe fallar si el usuario es estudiante")
     void getReservationsByRoom_ShouldFail_IfNonAdmin() {
+        Long roomId = testRoom.getId();
+        String email = testUser.getEmail();
         assertThrows(SecurityException.class, () -> 
-                reservationService.getReservationsByRoom(testRoom.getId(), testUser.getEmail()));
+                reservationService.getReservationsByRoom(roomId, email));
     }
     @Test
     @DisplayName("getMyReservations() debe clasificar correctamente: Pasada, Actual y Futura")
