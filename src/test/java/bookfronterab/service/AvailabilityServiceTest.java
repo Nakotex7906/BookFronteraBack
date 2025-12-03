@@ -14,9 +14,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -54,7 +54,7 @@ class AvailabilityServiceTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create");
     }
 
-    @MockBean private TimeService timeService;
+    @MockitoBean private TimeService timeService;
 
     @Autowired private AvailabilityService availabilityService;
     @Autowired private RoomRepository roomRepository;
@@ -183,5 +183,30 @@ class AvailabilityServiceTest {
         assertEquals(expectedAvailability, slot.get().isAvailable(),
                 String.format("Disponibilidad Sala %s Slot %s: Esperado %b, Actual %b",
                         roomId, slotId, expectedAvailability, slot.get().isAvailable()));
+    }
+    @Test
+    @DisplayName("Una reserva en el intervalo entre slots no debe ocupar ningún slot")
+    void getDailyAvailability_ReservationInSlotGap_ShouldNotOccupyAnySlot() {
+        // El primer slot es 08:30-09:30. El segundo slot empieza a las 09:40.
+        // El intervalo (gap) es de 09:30 a 09:40.
+        ZonedDateTime start = ZonedDateTime.of(TEST_DATE, LocalTime.of(9, 30), TEST_ZONE);
+        ZonedDateTime end = ZonedDateTime.of(TEST_DATE, LocalTime.of(9, 40), TEST_ZONE);
+        crearReserva(roomA, start, end); 
+        
+        AvailabilityDto.DailyAvailabilityResponse response = availabilityService.getDailyAvailability(TEST_DATE);
+        
+        // Verificamos que el slot anterior (08:30-09:30) esté disponible.
+        assertSlotAvailability(response, roomA, "08:30-09:30", true); 
+        
+        // Verificamos que el slot siguiente (09:40-10:40) esté disponible.
+        assertSlotAvailability(response, roomA, "09:40-10:40", true);
+        
+        // Verificamos que ningún slot de esta sala esté ocupado por la reserva del gap.
+        long occupiedSlots = response.getAvailability().stream()
+                .filter(item -> item.getRoomId().equals(String.valueOf(roomA.getId())))
+                .filter(item -> !item.isAvailable())
+                .count();
+        
+        assertEquals(0, occupiedSlots, "Ningún slot de la Sala A debería estar ocupado por una reserva en el gap.");
     }
 }

@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -20,8 +19,7 @@ public class AuthController {
         return Map.of(
                 "usuario", auth.getName(),
                 "roles_detectados", auth.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .collect(Collectors.toList()),
+                        .map(GrantedAuthority::getAuthority).toList(),
                 "principal_type", auth.getPrincipal().getClass().getName()
         );
     }

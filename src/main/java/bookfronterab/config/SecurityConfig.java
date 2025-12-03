@@ -28,40 +28,43 @@ public class SecurityConfig {
     private final CustomAuthenticationFailureHandler authenticationFailureHandler;
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .cors(cors -> cors.configurationSource(corsConfig()))
-                .csrf(csrf -> csrf.disable()) // Manteneter desactivado si se ocupa postman
-                .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
+SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http
+            .cors(cors -> cors.configurationSource(corsConfig()))
+            .csrf(csrf -> csrf.disable())
+            .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/", "/.well-known/**", "/favicon.ico", "/swagger-ui/**", "/v3/api-docs/**",
-                                "/api/v1", "/api/v1/", "/api/v1/availability/**", "/h2-console/**", "/api/v1/auth-debug"
-                        ).permitAll()
+            .authorizeHttpRequests(auth -> auth
+                    .requestMatchers(
+                            "/", "/.well-known/**", "/favicon.ico", "/swagger-ui/**", "/v3/api-docs/**",
+                            "/api/v1", "/api/v1/", "/api/v1/availability/**", "/h2-console/**", "/api/v1/auth-debug"
+                    ).permitAll()
 
-                        // REGLA CRÍTICA para proteger endpoints de rooms
-                        .requestMatchers("/api/v1/rooms/**").hasRole("ADMIN")
+                    .requestMatchers("/api/v1/rooms/**").hasRole("ADMIN")
 
-                        .anyRequest().authenticated()
-                )
-                .oauth2Login(oauth -> oauth
-                        .userInfoEndpoint(userInfo -> userInfo
-                                // Usar oidcUserService para Google
-                                .oidcUserService(customOidcUserService)
-                        )
-                        .successHandler(authenticationSuccessHandler)
-                        .failureHandler(authenticationFailureHandler)
-                )
-                .logout(logout -> logout
-                        .logoutUrl("/api/v1/logout")
-                        .logoutSuccessUrl("http://localhost:5173")
-                        .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
-                );
+                    .anyRequest().authenticated()
+            )
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint((request, response, authException) ->
+                    response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Error: No autenticado"))
+            )
+            // --------------------------------------------------------
+            .oauth2Login(oauth -> oauth
+                    .userInfoEndpoint(userInfo -> userInfo
+                            .oidcUserService(customOidcUserService)
+                    )
+                    .successHandler(authenticationSuccessHandler)
+                    .failureHandler(authenticationFailureHandler)
+            )
+            .logout(logout -> logout
+                    .logoutUrl("/api/v1/logout")
+                    .logoutSuccessUrl("http://localhost:5173")
+                    .invalidateHttpSession(true)
+                    .deleteCookies("JSESSIONID")
+            );
 
-        return http.build();
-    }
+    return http.build();
+}
     @Bean
     CorsConfigurationSource corsConfig() {
         CorsConfiguration cfg = new CorsConfiguration();

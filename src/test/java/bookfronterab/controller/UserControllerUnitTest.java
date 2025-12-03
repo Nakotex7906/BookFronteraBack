@@ -1,6 +1,5 @@
 package bookfronterab.controller;
 
-import bookfronterab.dto.UserDto;
 import bookfronterab.model.User;
 import bookfronterab.model.UserRole;
 import bookfronterab.repo.UserRepository;
@@ -10,17 +9,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -36,7 +35,7 @@ class UserControllerUnitTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private UserRepository userRepository;
 
     // Variables para simular la seguridad compleja
@@ -117,8 +116,7 @@ class UserControllerUnitTest {
 
         // 2. Simulamos el guardado: cuando guarden, devolvemos el usuario con el rol cambiado
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-            User u = invocation.getArgument(0);
-            return u; // Retornamos el mismo objeto modificado
+            return invocation.getArgument(0);
         });
 
         // 3. Ejecutar
@@ -147,19 +145,20 @@ class UserControllerUnitTest {
     }
 
     @Test
-    void toggleRole_DeberiaFallar_CuandoUsuarioNoExisteEnBD() throws Exception {
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+void toggleRole_DeberiaFallar_CuandoUsuarioNoExisteEnBD() throws Exception {
+    // 1. Arrange: El repositorio no encuentra al usuario
+    when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
-        mockMvc.perform(patch("/api/v1/users/toggle-role"))
-                // Según tu código, lanza IllegalStateException, lo que suele resultar en 500 error
-                // Si tienes un manejador de errores podría ser otro código.
-                .andExpect(result -> {
-                    if (!(result.getResolvedException() instanceof IllegalStateException)) {
-                        // Si no lanzó la excepción, verificamos que no sea 200 OK
-                        if (result.getResponse().getStatus() == 200) {
-                            throw new AssertionError("No debería tener éxito si el usuario no existe");
-                        }
-                    }
-                });
-    }
+    // 2. Ejecutar y Verificar
+    mockMvc.perform(patch("/api/v1/users/toggle-role"))
+            
+            // 3. CORRECCIÓN: Esperamos 400 Bad Request, según la regla del GlobalExceptionHandler para IllegalStateException
+            .andExpect(status().isBadRequest()) 
+            
+            // 4. Verificamos que la CAUSA del 400 fue la IllegalStateException
+            .andExpect(result -> {
+                assertTrue(result.getResolvedException() instanceof IllegalStateException, 
+                           "Se esperaba IllegalStateException al no encontrar el usuario.");
+            });
+}
 }
