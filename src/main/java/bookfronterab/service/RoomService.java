@@ -1,6 +1,5 @@
 package bookfronterab.service;
 
-import bookfronterab.exception.ImageUploadException;
 import bookfronterab.exception.ResourceNotFoundException;
 import bookfronterab.dto.RoomDto;
 import bookfronterab.model.Room;
@@ -10,7 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional; // <-- 1. IMPORTA ESTO
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.List;
 
 @Service
@@ -39,8 +37,8 @@ public class RoomService {
         if (imageFile != null && !imageFile.isEmpty()) {
             try {
                 imageUrl = cloudinaryService.uploadFile(imageFile);
-            } catch (IOException e) {
-                throw new ImageUploadException("Error al subir imagen a Cloudinary", e);
+            } catch (Exception e) {
+                throw new RuntimeException("Error al subir imagen a Cloudinary", e);
             }
         }
 
@@ -81,8 +79,8 @@ public class RoomService {
             try {
                 String newUrl = cloudinaryService.uploadFile(imageFile);
                 existingRoom.setImageUrl(newUrl);
-            } catch (IOException e) {
-                throw new ImageUploadException("Error al actualizar imagen en Cloudinary", e);
+            } catch (Exception e) {
+                throw new RuntimeException("Error al actualizar imagen en Cloudinary", e);
             }
         }
 
