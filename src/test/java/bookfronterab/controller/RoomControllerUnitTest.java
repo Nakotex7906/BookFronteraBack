@@ -14,13 +14,13 @@ import org.mockito.Mockito; // IMPORT NECESARIO
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration; // IMPORT NECESARIO
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean; // IMPORT NECESARIO
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -49,7 +49,7 @@ class RoomControllerUnitTest {
 
     // Solo necesitamos mockear RoomService, ya que las dependencias de SecurityConfig
     // son provistas como @Bean en SecurityTestConfig.
-    @MockBean private RoomService roomService;
+    @MockitoBean private RoomService roomService;
 
     // --- ELIMINADOS los @MockBean de seguridad para usar el @TestConfiguration ---
 
@@ -162,10 +162,6 @@ class RoomControllerUnitTest {
         verify(roomService, never()).createRoom(any(), any());
     }
     
-    // =================================================================================================
-    // TESTS: DELETE /api/v1/rooms/{id}
-    // =================================================================================================
-
     @Test
     @DisplayName("DELETE /rooms/{id} (ADMIN) debe eliminar y devolver 204 NO_CONTENT")
     @WithMockUser(username = ADMIN_USER, roles = {"ADMIN"})
@@ -191,10 +187,6 @@ class RoomControllerUnitTest {
 
         verify(roomService, never()).delateRoom(anyLong());
     }
-
-    // =================================================================================================
-    // TESTS: PATCH /api/v1/rooms/{id} (Actualización parcial con Multipart)
-    // =================================================================================================
 
     @Test
     @DisplayName("PATCH /rooms/{id} (ADMIN) debe actualizar sala y devolver 200 OK")
@@ -241,10 +233,6 @@ class RoomControllerUnitTest {
         verify(roomService, never()).patchRoom(anyLong(), any(), any());
     }
 
-    // =================================================================================================
-    // TESTS: PUT /api/v1/rooms/{id} (Actualización Completa)
-    // =================================================================================================
-    
     @Test
     @DisplayName("PUT /rooms/{id} (ADMIN) debe actualizar sala y devolver 200 OK")
     @WithMockUser(username = ADMIN_USER, roles = {"ADMIN"})
