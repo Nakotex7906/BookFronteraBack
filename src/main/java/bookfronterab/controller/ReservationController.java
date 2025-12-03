@@ -4,6 +4,7 @@ import bookfronterab.dto.ReservationDto;
 import bookfronterab.service.ReservationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +30,19 @@ public class ReservationController {
         }
         String userEmail = principal.getAttribute(EMAIL);
         reservationService.create(userEmail, req);
+    }
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/reservations/on-behalf")
+    @ResponseStatus(HttpStatus.CREATED)
+    public void createOnBehalf(
+            @RequestBody ReservationDto.CreateOnBehalfRequest req,
+            @AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            throw new SecurityException("No estás autenticado.");
+        }
+        String userEmail = principal.getAttribute(EMAIL);
+        ReservationDto.CreateRequest createRequest = new ReservationDto.CreateRequest(req.roomId(),req.startAt(),req.endAt(),false);
+        reservationService.createOnBehalf(userEmail,req.othersEmail(), createRequest);
     }
 
     /**

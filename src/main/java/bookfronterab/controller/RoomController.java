@@ -42,9 +42,13 @@ public class RoomController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    @PatchMapping("{id}")
-    public ResponseEntity<RoomDto> patchRoom(@PathVariable Long id, @Valid @RequestBody RoomDto roomDto) {
-        RoomDto patchedRoom = roomService.patchRoom(id, roomDto);
+    @PatchMapping(value = "{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<RoomDto> patchRoom(
+            @PathVariable Long id,
+            @RequestPart("room") @Valid RoomDto roomDto,
+            @RequestPart(value = "image", required = false) MultipartFile image) {
+
+        RoomDto patchedRoom = roomService.patchRoom(id, roomDto, image);
         return ResponseEntity.ok(patchedRoom);
     }
 
