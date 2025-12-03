@@ -45,9 +45,8 @@ SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                     .anyRequest().authenticated()
             )
             .exceptionHandling(exception -> exception
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Error: No autenticado");
-                })
+                .authenticationEntryPoint((request, response, authException) ->
+                    response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Error: No autenticado"))
             )
             // --------------------------------------------------------
             .oauth2Login(oauth -> oauth
