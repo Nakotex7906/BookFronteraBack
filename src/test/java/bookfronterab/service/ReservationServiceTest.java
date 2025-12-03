@@ -146,9 +146,9 @@ class ReservationServiceTest {
 
         ZonedDateTime fridayStart = nextMonday.with(TemporalAdjusters.next(DayOfWeek.FRIDAY));
         ReservationDto.CreateRequest request = createValidRequest(testRoom.getId(), fridayStart, fridayStart.plusHours(1), false);
-
+        String emailTestUser = testUser.getEmail();
         IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
-                reservationService.create(testUser.getEmail(), request));
+                reservationService.create(emailTestUser, request));
 
         assertTrue(ex.getMessage().contains("Límite alcanzado"));
     }
@@ -200,9 +200,9 @@ class ReservationServiceTest {
     @DisplayName("create() debe fallar si las fechas son nulas")
     void create_ShouldFail_WhenStartOrEndIsNull() {
         ReservationDto.CreateRequest request = createValidRequest(testRoom.getId(), nextMonday, null, false);
-        
+        String emailTestUser = testUser.getEmail();
         assertThrows(IllegalArgumentException.class, () -> 
-                reservationService.create(testUser.getEmail(), request));
+                reservationService.create(emailTestUser, request));
     }
 
     @Test
@@ -212,9 +212,9 @@ class ReservationServiceTest {
         ZonedDateTime end = nextMonday;
         
         ReservationDto.CreateRequest request = createValidRequest(testRoom.getId(), start, end, false);
-        
+        String emailTestUser = testUser.getEmail();
         assertThrows(IllegalArgumentException.class, () -> 
-                reservationService.create(testUser.getEmail(), request));
+                reservationService.create(emailTestUser, request));
     }
     
     @Test
