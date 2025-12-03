@@ -18,7 +18,6 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,7 +44,7 @@ class CloudinaryServiceTest {
     private static final String FAKE_URL = "https://res.cloudinary.com/test/image/upload/v12345/test_id.jpg";
     private static final String PUBLIC_ID = "v12345/test_id";
     private MultipartFile mockFile;
-    private Map mockUploadResult;
+    private Map<String,Object> mockUploadResult;
 
     @BeforeEach
     void setUp() {
@@ -85,7 +84,7 @@ class CloudinaryServiceTest {
         
         // 4. Verificar la interacción (Opcional, pero bueno):
         // Verificamos que uploader.upload fue llamado una vez con los argumentos correctos.
-        verify(uploader).upload(eq(mockFile.getBytes()), eq(ObjectUtils.emptyMap()));
+        verify(uploader).upload(mockFile.getBytes(), ObjectUtils.emptyMap());
     }
 
     @Test
@@ -101,6 +100,6 @@ class CloudinaryServiceTest {
 
         // 3. Verificar la interacción:
         // Verificamos que el método destroy() fue llamado con el publicId correcto y el mapa de opciones vacío.
-        verify(uploader).destroy(eq(PUBLIC_ID), eq(ObjectUtils.emptyMap()));
+        verify(uploader).destroy(PUBLIC_ID, ObjectUtils.emptyMap());
     }
 }
