@@ -1,5 +1,6 @@
 package bookfronterab.service;
 
+import bookfronterab.exception.ImageUploadException;
 import bookfronterab.exception.ResourceNotFoundException;
 import bookfronterab.dto.RoomDto;
 import bookfronterab.model.Room;
@@ -38,7 +39,7 @@ public class RoomService {
             try {
                 imageUrl = cloudinaryService.uploadFile(imageFile);
             } catch (Exception e) {
-                throw new RuntimeException("Error al subir imagen a Cloudinary", e);
+                throw new ImageUploadException("Error al subir imagen a Cloudinary", e);
             }
         }
 
@@ -80,7 +81,7 @@ public class RoomService {
                 String newUrl = cloudinaryService.uploadFile(imageFile);
                 existingRoom.setImageUrl(newUrl);
             } catch (Exception e) {
-                throw new RuntimeException("Error al actualizar imagen en Cloudinary", e);
+                throw new ImageUploadException("Error al actualizar imagen en Cloudinary", e);
             }
         }
 
