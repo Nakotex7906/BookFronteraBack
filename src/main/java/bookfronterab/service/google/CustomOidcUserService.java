@@ -9,11 +9,13 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error; // <--- Importante importar esto
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -24,6 +26,12 @@ public class CustomOidcUserService extends OidcUserService {
 
     private final UserRepository userRepository;
 
+    // Lista  de correos personales autorizados como Admin/Dev
+    private static final List<String> ADMIN_EMAILS = List.of(
+            "guillermosalgado002@gmail.com",
+            "nachoessus@gmail.com"
+    );
+
     @Override
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
         OidcUser oidcUser = super.loadUser(userRequest);
@@ -31,15 +39,19 @@ public class CustomOidcUserService extends OidcUserService {
         Map<String, Object> attributes = oidcUser.getAttributes();
         String email = (String) attributes.get("email");
 
-        // Permitir dominio institucional O tu correo personal específico de admin
+        //  Validaciones de Acceso
         boolean esInstitucional = email != null && email.endsWith("@ufromail.cl");
-        boolean esAdminPersonal = email != null && email.equals("guillermosalgado002@gmail.com"); // <--- TU CORREO
+        boolean esAdminPermitido = email != null && ADMIN_EMAILS.contains(email);
 
-        if (!esInstitucional && !esAdminPersonal) {
-            // Si no es ninguno de los dos, lanzamos la excepción que causa el "logout" forzado
-            throw new OAuth2AuthenticationException("Acceso denegado. Solo correos @ufromail.cl o administradores autorizados.");
+        if (!esInstitucional && !esAdminPermitido) {
+            // Usamos OAuth2Error para que el mensaje llegue bien al frontend en caso de rechazo
+            OAuth2Error error = new OAuth2Error(
+                    "access_denied",
+                    "Acceso denegado. Solo correos @ufromail.cl o administradores autorizados.",
+                    null
+            );
+            throw new OAuth2AuthenticationException(error, error.getDescription());
         }
-        // -----------------------
 
         Optional<User> userOptional = userRepository.findByEmail(email);
         UserRole rol = userOptional.map(User::getRol).orElse(UserRole.STUDENT);
