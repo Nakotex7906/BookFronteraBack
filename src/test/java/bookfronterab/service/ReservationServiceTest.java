@@ -29,6 +29,7 @@ import java.time.DayOfWeek;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -197,5 +198,17 @@ class ReservationServiceTest {
 
     private Reservation createTestReservation(User user, Room room, ZonedDateTime startAt, ZonedDateTime endAt) {
         return reservationRepository.save(Reservation.builder().user(user).room(room).startAt(startAt).endAt(endAt).build());
+    }
+
+    @Test
+    @DisplayName("createOnBehalf debería fallar si el usuario no existe")
+    void createOnBehalf_ShouldFail_WhenUserDoesNotExist(){
+        User user = new User(null,"admin@example.com","root",UserRole.ADMIN,ZonedDateTime.now().toOffsetDateTime(),null,null,null);
+        Room room = new Room(null,"test",4,new ArrayList<>(),1,"");
+        userRepository.save(user);
+        roomRepository.save(room);
+        ZonedDateTime zdt = nextMonday.withHour(18);
+        ReservationDto.CreateRequest req = new ReservationDto.CreateRequest(1L,zdt,zdt.plusHours(1),false);
+        assertThrows(IllegalArgumentException.class,()->reservationService.createOnBehalf(user.getEmail(),"john.doe@example.com",req));
     }
 }
