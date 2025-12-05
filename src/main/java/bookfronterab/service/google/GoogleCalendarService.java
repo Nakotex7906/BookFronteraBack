@@ -104,4 +104,32 @@ public class GoogleCalendarService {
             }
         }
     }
+
+    /**
+     * Actualiza un evento existente en Google Calendar con los nuevos datos de la reserva.
+     */
+    public void updateEvent(String googleEventId, Reservation reservation, String accessToken) throws IOException {
+        if (googleEventId == null || googleEventId.isEmpty()) return;
+
+        Calendar service = getCalendarClient(accessToken);
+
+        // Buscamos el evento original
+        Event event = service.events().get(CALENDAR_ID, googleEventId).execute();
+
+        // Actualizamos los campos necesarios
+        event.setSummary("Reserva de Sala: " + reservation.getRoom().getName());
+        event.setLocation(reservation.getRoom().getName());
+
+        // Actualizar Fechas
+        DateTime startDateTime = new DateTime(reservation.getStartAt().toInstant().toEpochMilli());
+        DateTime endDateTime = new DateTime(reservation.getEndAt().toInstant().toEpochMilli());
+
+        event.setStart(new EventDateTime().setDateTime(startDateTime).setTimeZone(reservation.getStartAt().getZone().getId()));
+        event.setEnd(new EventDateTime().setDateTime(endDateTime).setTimeZone(reservation.getEndAt().getZone().getId()));
+
+        // Ejecutamos la actualización (update reemplaza metadata, patch actualiza parcial)
+        service.events().update(CALENDAR_ID, googleEventId, event).execute();
+        log.info("Evento de Google Calendar actualizado. ID: {}", googleEventId);
+    }
+
 }

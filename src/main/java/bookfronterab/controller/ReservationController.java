@@ -105,4 +105,28 @@ public class ReservationController {
         // Llamamos al nuevo método del serv
         return reservationService.getReservationsByRoom(roomId, userEmail);
     }
+
+    /**
+     * Endpoint para modificar una reserva existente.
+     * Permite cambiar fecha, hora o sala.
+     *
+     * @param id El ID de la reserva a modificar.
+     * @param req Los nuevos datos solicitados (sala, fechas).
+     * @param principal El usuario autenticado.
+     * @return El detalle de la reserva actualizada.
+     */
+    @PutMapping("/reservations/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public ReservationDto.Detail update(
+            @PathVariable Long id,
+            @RequestBody ReservationDto.CreateRequest req,
+            @AuthenticationPrincipal OAuth2User principal) {
+
+        if (principal == null) {
+            throw new SecurityException("No estás autenticado.");
+        }
+        String userEmail = principal.getAttribute(EMAIL);
+        return reservationService.modify(id, userEmail, req);
+    }
+
 }

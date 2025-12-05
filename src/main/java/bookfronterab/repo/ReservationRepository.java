@@ -62,4 +62,13 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
      */
     List<Reservation> findByRoomIdOrderByStartAtAsc(Long roomId);
 
+    // Cuenta reservas en un rango de fechas EXCLUYENDO una reserva específica (por ID).
+    // Esto es vital para permitir modificaciones dentro de la misma semana sin chocar con el límite.
+    long countByUserEmailAndStartAtBetweenAndIdNot(
+            String email,
+            ZonedDateTime start,
+            ZonedDateTime end,
+            Long excludedId
+    );
+
 }

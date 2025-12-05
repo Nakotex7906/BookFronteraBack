@@ -385,6 +385,114 @@ public class ReservationService {
     }
 
     /**
+     * Modifica una reserva existente (Sala, Fecha u Hora).
+     * Maneja validaciones de propiedad, disponibilidad y sincronización con Google.
+     */
+    @Transactional
+    public ReservationDto.Detail modify(Long reservationId, String userEmail, ReservationDto.CreateRequest request) {
+        log.info("Modificando reserva ID: {} solicitada por {}", reservationId, userEmail);
+
+        //  Buscar la reserva original
+        Reservation reservation = reservationRepo.findById(reservationId)
+                .orElseThrow(() -> new IllegalArgumentException("La reserva no existe."));
+
+        //  Verificar Permisos (Dueño o Admin)
+        User requestor = userRepo.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalStateException("Usuario solicitante no encontrado."));
+
+        boolean isOwner = reservation.getUser().getEmail().equals(userEmail);
+        boolean isAdmin = requestor.getRol() == UserRole.ADMIN;
+
+        if (!isOwner && !isAdmin) {
+            throw new SecurityException("No tienes permiso para modificar esta reserva.");
+        }
+
+        //  Validar las nuevas fechas (Reglas de Negocio: futuro, duración, etc.)
+        validateReservationRequest(request);
+
+        //  Validar Disponibilidad (Excluyendo la reserva actual para evitar auto-conflicto)
+        checkAvailabilityForModification(request.roomId(), request.startAt(), request.endAt(), reservationId);
+
+        // Validar Límite Semanal (Solo si es Estudiante)
+        // Usamos la validación especial que excluye la reserva actual
+        if (!isAdmin) {
+            validateUserWeeklyLimitForModification(reservation.getUser(), request.startAt(), reservationId);
+        }
+
+        //  Actualizar Datos Locales
+        Room newRoom = roomRepo.findById(request.roomId())
+                .orElseThrow(() -> new IllegalArgumentException("La nueva sala seleccionada no existe."));
+
+        reservation.setRoom(newRoom);
+        reservation.setStartAt(request.startAt());
+        reservation.setEndAt(request.endAt());
+        // El estado o auditoría podría actualizarse aquí si tuvieras esa lógica
+
+        Reservation updatedReservation = reservationRepo.save(reservation);
+
+        //  Sincronizar con Google Calendar (Si aplica)
+        if (reservation.getGoogleEventId() != null) {
+            try {
+                // Usamos las credenciales del DUEÑO de la reserva para actualizar SU calendario
+                Credential credential = googleCredentialsService.getCredential(reservation.getUser());
+
+                googleCalendarService.updateEvent(
+                        reservation.getGoogleEventId(),
+                        updatedReservation,
+                        credential.getAccessToken()
+                );
+            } catch (Exception e) {
+                log.error("Error actualizando Google Calendar para reserva {}: {}", reservationId, e.getMessage());
+                // No lanzamos error fatal para no revertir el cambio local, pero queda registrado.
+            }
+        }
+
+        log.info("Reserva {} modificada con éxito.", reservationId);
+        return mapToDetailDto(updatedReservation);
+    }
+
+    /**
+     *  Valida límite semanal excluyendo la reserva que se está modificando.
+     */
+    private void validateUserWeeklyLimitForModification(User user, ZonedDateTime reservationDate, Long excludedReservationId) {
+        // Inicio de semana: Lunes 00:00
+        ZonedDateTime startOfWeek = reservationDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+        // Fin de semana laboral: VIERNES 23:59
+        ZonedDateTime endOfWeek = reservationDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.FRIDAY))
+                .withHour(23).withMinute(59).withSecond(59).withNano(999999999);
+
+        long count = reservationRepo.countByUserEmailAndStartAtBetweenAndIdNot(
+                user.getEmail(), startOfWeek, endOfWeek, excludedReservationId
+        );
+
+        if (count >= 1) {
+            log.warn("Bloqueo modificación: Usuario {} ya tiene otra reserva en la semana del {} (excluyendo la actual).",
+                    user.getEmail(), startOfWeek.toLocalDate());
+            throw new IllegalStateException("Límite alcanzado: Ya tienes otra reserva distinta en esa semana.");
+        }
+    }
+
+
+    /**
+     * auxiliar específico para modificaciones.
+     * Verifica disponibilidad ignorando la reserva que se está editando.
+     */
+    private void checkAvailabilityForModification(Long roomId, ZonedDateTime start, ZonedDateTime end, Long excludeReservationId) {
+        // Obtenemos TODAS las reservas conflictivas en ese horario y sala
+        List<Reservation> conflicts = reservationRepo.findConflictingReservations(roomId, start, end);
+
+        // Filtramos la lista para quitar la reserva actual (si aparece)
+        boolean hasRealConflict = conflicts.stream()
+                .anyMatch(res -> !res.getId().equals(excludeReservationId));
+
+        if (hasRealConflict) {
+            throw new IllegalStateException("La sala ya está ocupada en el nuevo horario seleccionado.");
+        }
+    }
+
+    /**
      * Convierte una entidad {@link Reservation} a su DTO de detalle.
      *
      * @param reservation La entidad a convertir.
