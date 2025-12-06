@@ -125,12 +125,17 @@ class ReservationControllerUnitTest {
     @Test
     @DisplayName("createOnBehalf() debe devolver 201 CREATED si es ADMIN")
     void createOnBehalf_ShouldReturnCreated_IfAdmin() throws Exception {
+
         ReservationDto.CreateOnBehalfRequest req = new ReservationDto.CreateOnBehalfRequest(
-                1L, ZonedDateTime.now().plusHours(1), ZonedDateTime.now().plusHours(2), STUDENT_EMAIL
+                1L,
+                ZonedDateTime.now().plusHours(1),
+                ZonedDateTime.now().plusHours(2),
+                STUDENT_EMAIL,
+                false
         );
 
         mockMvc.perform(post("/api/v1/reservations/on-behalf")
-                        .with(adminLogin) // Usamos el login de ADMIN
+                        .with(adminLogin)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))

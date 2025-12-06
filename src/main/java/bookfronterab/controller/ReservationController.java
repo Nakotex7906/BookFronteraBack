@@ -41,8 +41,15 @@ public class ReservationController {
             throw new SecurityException("No estás autenticado.");
         }
         String userEmail = principal.getAttribute(EMAIL);
-        ReservationDto.CreateRequest createRequest = new ReservationDto.CreateRequest(req.roomId(),req.startAt(),req.endAt(),false);
-        reservationService.createOnBehalf(userEmail,req.othersEmail(), createRequest);
+
+        ReservationDto.CreateRequest createRequest = new ReservationDto.CreateRequest(
+                req.roomId(),
+                req.startAt(),
+                req.endAt(),
+                req.addToGoogleCalendar()
+        );
+
+        reservationService.createOnBehalf(userEmail, req.othersEmail(), createRequest);
     }
 
     /**

@@ -27,7 +27,8 @@ public class ReservationDto {
        Long roomId,
        ZonedDateTime startAt,
        ZonedDateTime endAt,
-       String othersEmail
+       String othersEmail,
+       boolean addToGoogleCalendar
     ){}
 
     /**

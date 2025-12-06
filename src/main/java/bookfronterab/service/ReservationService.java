@@ -112,23 +112,37 @@ public class ReservationService {
     public void createOnBehalf(String userEmail, String othersEmail, ReservationDto.CreateRequest req){
         //  Validación y búsqueda de User/Room
         validateReservationRequest(req);
-        Room room = roomRepo.findByIdWithLock(req.roomId()) // Usando el bloqueo pesimista
+
+        Room room = roomRepo.findByIdWithLock(req.roomId())
                 .orElseThrow(() -> new IllegalArgumentException("Sala no encontrada: " + req.roomId()));
+
         User other = userRepo.findByEmail(othersEmail)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + othersEmail));
-        // 3. Validar disponibilidad
+
+        //  Validar disponibilidad
         checkAvailability(req.roomId(), req.startAt(), req.endAt());
-        // 4. Crear y guardar la reserva SIN EL ID DE GOOGLE
+
+        //  Crear y guardar la reserva
         Reservation reservation = Reservation.builder()
-                .user(other)
+                .user(other) // La reserva queda a nombre del "otro"
                 .room(room)
                 .startAt(req.startAt())
                 .endAt(req.endAt())
                 .build();
 
         Reservation savedReservation = reservationRepo.save(reservation);
-        log.info("Reserva {} creada (localmente) por {} para usuario {}", savedReservation.getId(), userEmail,othersEmail);
-        log.info("Las reserva {} es en nombre de otra persona y no se añade a google calendar", savedReservation.getId());
+        log.info("Reserva {} creada por Admin {} para usuario {}", savedReservation.getId(), userEmail, othersEmail);
+
+        // Verificamos si el Admin pidió agregarlo (req.addToGoogleCalendar())
+        // Y si el usuario tiene tokens (other.getGoogleRefreshToken() != null)
+        if (req.addToGoogleCalendar()) {
+            if (other.getGoogleRefreshToken() != null) {
+                log.info("Sincronizando con el calendario de {}", othersEmail);
+                handleGoogleCalendarSync(other, savedReservation);
+            } else {
+                log.warn("El admin solicitó Google Calendar, pero el usuario {} no tiene tokens conectados.", othersEmail);
+            }
+        }
     }
 
     /**
