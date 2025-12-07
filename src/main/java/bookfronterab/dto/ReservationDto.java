@@ -2,6 +2,9 @@ package bookfronterab.dto;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 /**
  * Contenedor para los Data Transfer Objects (DTOs) relacionados con Reservation.
@@ -27,6 +30,9 @@ public class ReservationDto {
        Long roomId,
        ZonedDateTime startAt,
        ZonedDateTime endAt,
+       @Email(message = "Debe ser un correo válido")
+       @Size(max = 100, message = "El correo es demasiado largo")
+       @Pattern(regexp = "^[A-Za-z0-9._%+-]+@ufromail\\.cl$", message = "Solo se permiten correos @ufromail.cl")
        String othersEmail,
        boolean addToGoogleCalendar
     ){}

@@ -2,6 +2,7 @@ package bookfronterab.controller;
 
 import bookfronterab.dto.ReservationDto;
 import bookfronterab.service.ReservationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,7 +36,7 @@ public class ReservationController {
     @PostMapping("/reservations/on-behalf")
     @ResponseStatus(HttpStatus.CREATED)
     public void createOnBehalf(
-            @RequestBody ReservationDto.CreateOnBehalfRequest req,
+            @RequestBody @Valid ReservationDto.CreateOnBehalfRequest req,
             @AuthenticationPrincipal OAuth2User principal) {
         if (principal == null) {
             throw new SecurityException("No estás autenticado.");

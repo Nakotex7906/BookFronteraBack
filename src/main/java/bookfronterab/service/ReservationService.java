@@ -110,6 +110,15 @@ public class ReservationService {
     }
     @Transactional
     public void createOnBehalf(String userEmail, String othersEmail, ReservationDto.CreateRequest req){
+
+        //  Limpieza radical: quitar cualquier rastro de tags HTML/scripts (XSS Protection)
+        String sanitizedEmail = othersEmail.replaceAll("<[^>]*>", "").strip();
+
+        // Verificar que no haya quedado vacío tras la limpieza
+        if (sanitizedEmail.isBlank()) {
+            throw new IllegalArgumentException("El correo del destinatario es inválido o peligroso.");
+        }
+
         //  Validación y búsqueda de User/Room
         validateReservationRequest(req);
 
@@ -117,7 +126,7 @@ public class ReservationService {
                 .orElseThrow(() -> new IllegalArgumentException("Sala no encontrada: " + req.roomId()));
 
         User other = userRepo.findByEmail(othersEmail)
-                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + othersEmail));
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + sanitizedEmail));
 
         //  Validar disponibilidad
         checkAvailability(req.roomId(), req.startAt(), req.endAt());
