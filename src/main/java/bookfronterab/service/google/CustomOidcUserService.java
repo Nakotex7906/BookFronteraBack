@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.core.OAuth2Error; // <--- Importante 
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Collections;
 import java.util.List;
@@ -27,10 +28,8 @@ public class CustomOidcUserService extends OidcUserService {
     private final UserRepository userRepository;
 
     // Lista  de correos personales autorizados como Admin/Dev
-    private static final List<String> ADMIN_EMAILS = List.of(
-            "guillermosalgado002@gmail.com",
-            "nachoessus@gmail.com"
-    );
+    @Value("#{'${app.admin.emails}'.split(',')}")
+    private List<String> adminEmails;
 
     @Override
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
@@ -41,7 +40,7 @@ public class CustomOidcUserService extends OidcUserService {
 
         //  Validaciones de Acceso
         boolean esInstitucional = email != null && email.endsWith("@ufromail.cl");
-        boolean esAdminPermitido = email != null && ADMIN_EMAILS.contains(email);
+        boolean esAdminPermitido = email != null && adminEmails.contains(email);
 
         if (!esInstitucional && !esAdminPermitido) {
             // Usamos OAuth2Error para que el mensaje llegue bien al frontend en caso de rechazo
