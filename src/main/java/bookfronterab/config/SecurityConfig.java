@@ -2,6 +2,7 @@ package bookfronterab.config;
 
 import bookfronterab.service.google.CustomOidcUserService; // <-- IMPORTACIÓN EL NUEVO SERVICIO
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -28,6 +29,8 @@ public class SecurityConfig {
 
     private final CustomAuthenticationSuccessHandler authenticationSuccessHandler;
     private final CustomAuthenticationFailureHandler authenticationFailureHandler;
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOrigins;
 
     @Bean
 SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -79,7 +82,8 @@ SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     @Bean
     CorsConfigurationSource corsConfig() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(List.of("http://localhost:5173"));
+        // El split es por si necesitas permitir varios (ej: el dominio oficial Y localhost para pruebas)
+        cfg.setAllowedOrigins(List.of(allowedOrigins.split(",")));
         cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setAllowCredentials(true);
