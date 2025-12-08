@@ -14,6 +14,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -29,10 +31,19 @@ public class SecurityConfig {
 
     @Bean
 SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
+        requestHandler.setCsrfRequestAttributeName(null);
     http
             .cors(cors -> cors.configurationSource(corsConfig()))
-            .csrf(csrf -> csrf.disable())
-            .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
+            .csrf(csrf -> csrf
+                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .csrfTokenRequestHandler(requestHandler)
+            )
+            .headers(headers -> headers
+                    .frameOptions(HeadersConfigurer.FrameOptionsConfig::deny)
+                    .xssProtection(HeadersConfigurer.XXssConfig::disable)
+                    .contentSecurityPolicy(csp -> csp.policyDirectives("script-src 'self'"))
+            )
 
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(
