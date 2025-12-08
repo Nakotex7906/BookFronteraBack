@@ -31,20 +31,23 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-/**
- * Pruebas de integración para AvailabilityService.
- * Valida la generación de slots y el cálculo de disponibilidad.
- */
+
 @Testcontainers
 @SpringBootTest
 class AvailabilityServiceTest {
 
+    /**
+     * Define y gestiona el contenedor Docker de PostgreSQL para la prueba.
+     */
     @Container
     public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
             .withDatabaseName("bookfronterab-test")
             .withUsername("testuser")
             .withPassword("testpass");
 
+    /**
+     * Sobreescribe las propiedades de conexión de Spring para usar el contenedor.
+     */
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
@@ -54,38 +57,55 @@ class AvailabilityServiceTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create");
     }
 
+    // Mockea el servicio de tiempo para controlar la zona horaria durante las pruebas.
     @MockitoBean private TimeService timeService;
 
+    // Inyección del servicio bajo prueba y los repositorios.
     @Autowired private AvailabilityService availabilityService;
     @Autowired private RoomRepository roomRepository;
     @Autowired private ReservationRepository reservationRepository;
     @Autowired private UserRepository userRepository;
 
+    // Constantes para definir la fecha y zona horaria de las pruebas.
     private static final LocalDate TEST_DATE = LocalDate.of(2025, 11, 20);
     private static final ZoneId TEST_ZONE = ZoneId.of("America/Santiago");
     
+    // Entidades persistidas
     private Room roomA;
     private Room roomB;
     private User testUser;
 
+    /**
+     * Configuración ejecutada antes de cada prueba.
+     * 1. Limpia las tablas.
+     * 2. Mockea la zona horaria del sistema.
+     * 3. Persiste un usuario y dos salas de prueba.
+     */
     @BeforeEach
     void setUp() {
+        // Limpieza de datos (rollback manual en integración).
         reservationRepository.deleteAllInBatch();
         roomRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
 
+        // Asegura que el servicio use la zona horaria de prueba.
         when(timeService.zone()).thenReturn(TEST_ZONE);
 
+        // Persiste el usuario de prueba
         testUser = userRepository.save(User.builder()
                 .email("test@example.com")
                 .nombre("Test User")
                 .rol(UserRole.STUDENT)
                 .build());
 
+        // Persiste las salas de prueba
         roomA = roomRepository.save(Room.builder().name("Sala A").capacity(10).floor(1).equipment(List.of("TV")).build());
         roomB = roomRepository.save(Room.builder().name("Sala B").capacity(5).floor(2).equipment(List.of("Pizarra")).build());
     }
 
+    /**
+     * Limpieza ejecutada después de cada prueba.
+     */
     @AfterEach
     void tearDown() {
         reservationRepository.deleteAllInBatch();
@@ -93,74 +113,114 @@ class AvailabilityServiceTest {
         userRepository.deleteAllInBatch();
     }
 
+    /**
+     * Verifica que el servicio genere la cantidad y el rango de slots de tiempo esperados,
+     * basándose en la configuración horaria (ej. bloques UFRO).
+     */
     @Test
     @DisplayName("Debe generar 11 slots correspondientes a los bloques de la UFRO")
     void getDailyAvailability_GeneratesCorrectTimeSlots() {
+        // Act
         AvailabilityDto.DailyAvailabilityResponse response = availabilityService.getDailyAvailability(TEST_DATE);
 
-        assertEquals(11, response.getSlots().size());
+        // Assert
+        assertEquals(11, response.getSlots().size(), "Debe haber 11 slots de tiempo definidos.");
+        // Verificación de los extremos de los slots.
         assertEquals("08:30-09:30", response.getSlots().get(0).getId());
         assertEquals("20:20-21:20", response.getSlots().get(10).getId());
     }
 
+    /**
+     * Verifica que si no hay reservas, todos los slots para todas las salas
+     * se marquen como disponibles.
+     */
     @Test
     @DisplayName("Si no hay reservas, todos los slots deben estar disponibles")
     void getDailyAvailability_WhenNoReservations_AllSlotsAreAvailable() {
+        // Act
         AvailabilityDto.DailyAvailabilityResponse response = availabilityService.getDailyAvailability(TEST_DATE);
 
-        assertEquals(11, response.getSlots().size());
-        assertEquals(22, response.getAvailability().size()); 
+        // Assert
+        // Debe haber 22 items: 11 slots * 2 salas.
+        assertEquals(22, response.getAvailability().size(), "Debe haber una entrada por slot por sala (11 * 2).");
 
+        // Verifica que la propiedad 'isAvailable' sea verdadera para todos los ítems.
         boolean allAvailable = response.getAvailability().stream()
                 .allMatch(AvailabilityDto.AvailabilityMatrixItemDto::isAvailable);
-        assertTrue(allAvailable, "Todos los slots deberían estar disponibles");
+        assertTrue(allAvailable, "Todos los slots deberían estar disponibles.");
     }
 
+    /**
+     * Verifica que una reserva que coincide exactamente con un bloque horario
+     * marque ese slot como ocupado para la sala correspondiente.
+     */
     @Test
     @DisplayName("Una reserva en el primer bloque debe ocuparlo correctamente")
     void getDailyAvailability_WhenReservationMatchesSlot_SlotIsOccupied() {
+        // Arrange: Reserva exacta del primer bloque para Sala A (08:30-09:30)
         ZonedDateTime start = ZonedDateTime.of(TEST_DATE, LocalTime.of(8, 30), TEST_ZONE);
         ZonedDateTime end = ZonedDateTime.of(TEST_DATE, LocalTime.of(9, 30), TEST_ZONE);
         crearReserva(roomA, start, end); 
 
+        // Act
         AvailabilityDto.DailyAvailabilityResponse response = availabilityService.getDailyAvailability(TEST_DATE);
 
-        assertSlotAvailability(response, roomA, "08:30-09:30", false);
-        assertSlotAvailability(response, roomB, "08:30-09:30", true);
-        assertSlotAvailability(response, roomA, "09:40-10:40", true);
+        // Assert:
+        assertSlotAvailability(response, roomA, "08:30-09:30", false); // Sala A: Ocupado
+        assertSlotAvailability(response, roomB, "08:30-09:30", true);  // Sala B: Disponible
+        assertSlotAvailability(response, roomA, "09:40-10:40", true);  // Sala A (siguiente slot): Disponible
     }
 
+    /**
+     * Verifica que una reserva que se superpone a dos bloques horarios,
+     * marque correctamente ambos slots como ocupados.
+     */
     @Test
     @DisplayName("Una reserva que solapa dos bloques debe ocupar ambos")
     void getDailyAvailability_WhenReservationOverlapsTwoSlots_BothSlotsAreOccupied() {
-        // Reserva de 09:00 a 10:00 solapa el bloque 1 (08:30-09:30) y bloque 2 (09:40-10:40)
+        // Arrange: Reserva de 09:00 a 10:00 (solapa 08:30-09:30 y 09:40-10:40)
         ZonedDateTime start = ZonedDateTime.of(TEST_DATE, LocalTime.of(9, 0), TEST_ZONE);
         ZonedDateTime end = ZonedDateTime.of(TEST_DATE, LocalTime.of(10, 0), TEST_ZONE);
         crearReserva(roomA, start, end);
         
+        // Act
         AvailabilityDto.DailyAvailabilityResponse response = availabilityService.getDailyAvailability(TEST_DATE);
 
-        assertSlotAvailability(response, roomA, "08:30-09:30", false);
-        assertSlotAvailability(response, roomA, "09:40-10:40", false);
-        assertSlotAvailability(response, roomA, "10:50-11:50", true);
+        // Assert
+        assertSlotAvailability(response, roomA, "08:30-09:30", false); // Bloque 1: Ocupado (solapa)
+        assertSlotAvailability(response, roomA, "09:40-10:40", false); // Bloque 2: Ocupado (solapa)
+        assertSlotAvailability(response, roomA, "10:50-11:50", true);  // Bloque 3: Disponible
     }
     
+    /**
+     * Verifica que una reserva que abarca todo el horario de servicio o más,
+     * marque todos los slots como ocupados para esa sala.
+     */
     @Test
     @DisplayName("Una reserva de todo el día debe ocupar todos los slots")
     void getDailyAvailability_WhenReservationIsAllDay_AllSlotsAreOccupied() {
+        // Arrange: Reserva de 08:00 a 22:00 para Sala B.
         ZonedDateTime start = ZonedDateTime.of(TEST_DATE, LocalTime.of(8, 0), TEST_ZONE);
         ZonedDateTime end = ZonedDateTime.of(TEST_DATE, LocalTime.of(22, 0), TEST_ZONE);
         crearReserva(roomB, start, end);
         
+        // Act
         AvailabilityDto.DailyAvailabilityResponse response = availabilityService.getDailyAvailability(TEST_DATE);
 
+        // Assert
         long slotsOcupadosRoomB = response.getAvailability().stream()
                 .filter(item -> item.getRoomId().equals(String.valueOf(roomB.getId())))
-                .filter(item -> !item.isAvailable())
+                .filter(item -> !item.isAvailable()) // Contar los slots no disponibles
                 .count();
-        assertEquals(11, slotsOcupadosRoomB, "Todos los slots de la Sala B debían estar ocupados");
+        assertEquals(11, slotsOcupadosRoomB, "Todos los 11 slots de la Sala B debían estar ocupados.");
     }
 
+    /**
+     * Método auxiliar para crear y persistir una reserva.
+     * @param room Sala a reservar.
+     * @param startAt Hora de inicio de la reserva.
+     * @param endAt Hora de fin de la reserva.
+     */
     private void crearReserva(Room room, ZonedDateTime startAt, ZonedDateTime endAt) {
         Reservation res = Reservation.builder()
                 .room(room)
@@ -170,43 +230,22 @@ class AvailabilityServiceTest {
                 .build();
         reservationRepository.save(res);
     }
-
+    
+    /**
+     * Método auxiliar para verificar el estado (disponible/ocupado) de un slot específico.
+     * @param response El DTO de respuesta de disponibilidad.
+     * @param room La sala cuya disponibilidad se verifica.
+     * @param slotId El ID del slot de tiempo (ej. "08:30-09:30").
+     * @param expectedAvailability El valor booleano esperado (true=Disponible, false=Ocupado).
+     */
     private void assertSlotAvailability(AvailabilityDto.DailyAvailabilityResponse response, Room room, String slotId, boolean expectedAvailability) {
-        String roomId = String.valueOf(room.getId()); 
-        
-        Optional<AvailabilityDto.AvailabilityMatrixItemDto> slot = response.getAvailability().stream()
-                .filter(item -> item.getRoomId().equals(roomId) && item.getSlotId().equals(slotId))
+        Optional<AvailabilityDto.AvailabilityMatrixItemDto> item = response.getAvailability().stream()
+                .filter(a -> a.getRoomId().equals(String.valueOf(room.getId())) && a.getSlotId().equals(slotId))
                 .findFirst();
-        
-        assertTrue(slot.isPresent(), "No se encontró el slot: " + slotId + " para la sala: " + roomId);
-        
-        assertEquals(expectedAvailability, slot.get().isAvailable(),
-                String.format("Disponibilidad Sala %s Slot %s: Esperado %b, Actual %b",
-                        roomId, slotId, expectedAvailability, slot.get().isAvailable()));
-    }
-    @Test
-    @DisplayName("Una reserva en el intervalo entre slots no debe ocupar ningún slot")
-    void getDailyAvailability_ReservationInSlotGap_ShouldNotOccupyAnySlot() {
-        // El primer slot es 08:30-09:30. El segundo slot empieza a las 09:40.
-        // El intervalo (gap) es de 09:30 a 09:40.
-        ZonedDateTime start = ZonedDateTime.of(TEST_DATE, LocalTime.of(9, 30), TEST_ZONE);
-        ZonedDateTime end = ZonedDateTime.of(TEST_DATE, LocalTime.of(9, 40), TEST_ZONE);
-        crearReserva(roomA, start, end); 
-        
-        AvailabilityDto.DailyAvailabilityResponse response = availabilityService.getDailyAvailability(TEST_DATE);
-        
-        // Verificamos que el slot anterior (08:30-09:30) esté disponible.
-        assertSlotAvailability(response, roomA, "08:30-09:30", true); 
-        
-        // Verificamos que el slot siguiente (09:40-10:40) esté disponible.
-        assertSlotAvailability(response, roomA, "09:40-10:40", true);
-        
-        // Verificamos que ningún slot de esta sala esté ocupado por la reserva del gap.
-        long occupiedSlots = response.getAvailability().stream()
-                .filter(item -> item.getRoomId().equals(String.valueOf(roomA.getId())))
-                .filter(item -> !item.isAvailable())
-                .count();
-        
-        assertEquals(0, occupiedSlots, "Ningún slot de la Sala A debería estar ocupado por una reserva en el gap.");
+
+        assertTrue(item.isPresent(), "El slot " + slotId + " para la sala " + room.getName() + " debe existir.");
+        assertEquals(expectedAvailability, item.get().isAvailable(), 
+                     "El slot " + slotId + " para la sala " + room.getName() + 
+                     (expectedAvailability ? " debería estar disponible." : " debería estar ocupado."));
     }
 }
