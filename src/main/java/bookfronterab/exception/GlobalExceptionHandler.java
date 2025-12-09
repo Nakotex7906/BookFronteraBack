@@ -5,6 +5,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException; // NUEVO IMPORT
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.validation.FieldError;
+import java.util.HashMap;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
@@ -46,6 +49,24 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(err(500, "INTERNAL_SERVER_ERROR", ex.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+
+        return new ResponseEntity<>(Map.of(
+                "timestamp", OffsetDateTime.now().toString(),
+                "status", 400,
+                "code", "VALIDATION_ERROR",
+                "message", "Error de validación en los campos",
+                "errors", errors
+        ), HttpStatus.BAD_REQUEST);
+    }
 
     private Map<String, Object> err(int status, String code, String msg) {
         return Map.of(
