@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional; // <-- 1. IMPORTA ESTO
 import org.springframework.web.multipart.MultipartFile;
+import bookfronterab.exception.ImageUploadException;
 
 import java.util.List;
 
@@ -38,7 +39,7 @@ public class RoomService {
             try {
                 imageUrl = cloudinaryService.uploadFile(imageFile);
             } catch (Exception e) {
-                throw new RuntimeException("Error al subir imagen a Cloudinary", e);
+                throw new ImageUploadException("Error al subir imagen a Cloudinary", e);
             }
         }
 
@@ -80,7 +81,7 @@ public class RoomService {
                 String newUrl = cloudinaryService.uploadFile(imageFile);
                 existingRoom.setImageUrl(newUrl);
             } catch (Exception e) {
-                throw new RuntimeException("Error al actualizar imagen en Cloudinary", e);
+                throw new ImageUploadException("Error al actualizar imagen en Cloudinary", e);
             }
         }
 
