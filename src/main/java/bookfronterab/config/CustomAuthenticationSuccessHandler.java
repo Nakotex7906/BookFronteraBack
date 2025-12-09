@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
@@ -35,6 +36,8 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final UserRepository userRepository;
     private final TimeService timeService;
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -61,7 +64,7 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
         userRepository.save(user);
 
         //  Redirigir al frontend
-        response.sendRedirect("http://localhost:5173");
+        response.sendRedirect(frontendUrl);
     }
 
     /**
