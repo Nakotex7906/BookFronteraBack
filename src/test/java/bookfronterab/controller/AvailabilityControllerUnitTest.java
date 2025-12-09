@@ -2,6 +2,7 @@ package bookfronterab.controller;
 
 import bookfronterab.dto.AvailabilityDto;
 import bookfronterab.service.AvailabilityService;
+import bookfronterab.service.RateLimitingService;
 import bookfronterab.service.TimeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AvailabilityController.class)
-@AutoConfigureMockMvc(addFilters = false) // Desactiva seguridad para facilitar el test
+@AutoConfigureMockMvc(addFilters = false)
 class AvailabilityControllerUnitTest {
 
     @Autowired
@@ -33,7 +34,11 @@ class AvailabilityControllerUnitTest {
     @MockitoBean
     private TimeService timeService;
 
-    // CASO 1: El usuario envía una fecha específica (?date=2025-10-20)
+    // SOLUCIÓN: Agregamos el Mock del servicio que necesita el filtro
+    @MockitoBean
+    private RateLimitingService rateLimitingService;
+
+    // CASO 1: El usuario envía una fecha específica
     @Test
     void getDailyAvailability_DeberiaUsarFechaProporcionada() throws Exception {
         // 1. Datos de prueba
@@ -41,11 +46,10 @@ class AvailabilityControllerUnitTest {
         LocalDate fechaEsperada = LocalDate.parse(fechaInput);
 
         // 2. Simulamos la respuesta del servicio
-        // FIX: Usamos List.of() en lugar de Collections.emptyList() para evitar errores de tipos genéricos
         AvailabilityDto.DailyAvailabilityResponse responseMock = new AvailabilityDto.DailyAvailabilityResponse(
-                List.of(), // 1. Lista de Rooms vacía
-                List.of(), // 2. Lista de TimeSlots vacía
-                List.of()  // 3. Lista de Items vacía
+                List.of(),
+                List.of(),
+                List.of()
         );
 
         when(availabilityService.getDailyAvailability(fechaEsperada)).thenReturn(responseMock);
@@ -57,14 +61,11 @@ class AvailabilityControllerUnitTest {
                 .andExpect(status().isOk());
     }
 
-    // CASO 2: El usuario NO envía fecha (debe usar "hoy")
+    // CASO 2: El usuario NO envía fecha
     @Test
     void getDailyAvailability_DeberiaUsarFechaActual_CuandoNoSeEnviaParametro() throws Exception {
-        // 1. Simulamos el TimeService para evitar errores de NullPointerException
         when(timeService.zone()).thenReturn(ZoneId.systemDefault());
 
-        // 2. Simulamos la respuesta
-        // FIX: Usamos List.of() aquí también
         AvailabilityDto.DailyAvailabilityResponse responseMock = new AvailabilityDto.DailyAvailabilityResponse(
                 List.of(),
                 List.of(),
@@ -73,7 +74,6 @@ class AvailabilityControllerUnitTest {
 
         when(availabilityService.getDailyAvailability(any(LocalDate.class))).thenReturn(responseMock);
 
-        // 3. Ejecutar SIN parámetro date
         mockMvc.perform(get("/api/v1/availability")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
