@@ -16,6 +16,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.web.RedirectStrategy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.net.URLDecoder;
@@ -81,8 +82,8 @@ class CustomAuthenticationFailureHandlerTest {
         String actualDecodedMessage = URLDecoder.decode(encodedErrorMessage, StandardCharsets.UTF_8);
 
         // 3. Usamos .trim() en ambos lados para ignorar cualquier whitespace
-        assertTrue(actualDecodedMessage.trim().equals(EXPECTED_RAW_MESSAGE.trim()), 
-                   "El mensaje decodificado debe ser el mensaje específico de la excepción.");
+        assertEquals(EXPECTED_RAW_MESSAGE.trim(), actualDecodedMessage.trim(),
+                "El mensaje decodificado debe ser el mensaje específico de la excepción.");
     }
 
     @Test
@@ -112,8 +113,8 @@ class CustomAuthenticationFailureHandlerTest {
         String actualDecodedMessage = URLDecoder.decode(encodedErrorMessage, StandardCharsets.UTF_8);
 
         // 2. Verificar el mensaje por defecto
-        assertTrue(actualDecodedMessage.trim().equals(EXPECTED_DEFAULT_MESSAGE.trim()), 
-                   "Debe usar el mensaje por defecto cuando el mensaje de la excepción es nulo.");
+        assertEquals(EXPECTED_DEFAULT_MESSAGE.trim(), actualDecodedMessage.trim(),
+                "Debe usar el mensaje por defecto cuando el mensaje de la excepción es nulo.");
     }
 
     @Test
