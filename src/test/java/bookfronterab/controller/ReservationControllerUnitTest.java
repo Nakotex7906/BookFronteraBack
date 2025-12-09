@@ -4,6 +4,7 @@ import bookfronterab.config.CustomAuthenticationFailureHandler;
 import bookfronterab.config.CustomAuthenticationSuccessHandler;
 import bookfronterab.config.SecurityConfig;
 import bookfronterab.dto.ReservationDto;
+import bookfronterab.service.RateLimitingService; // <--- 1. IMPORTAR ESTO
 import bookfronterab.service.ReservationService;
 import bookfronterab.service.google.CustomOidcUserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,6 +35,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import io.github.bucket4j.Bucket;
+import org.junit.jupiter.api.BeforeEach;
 
 @WebMvcTest(ReservationController.class)
 @ActiveProfiles("test")
@@ -45,7 +48,23 @@ class ReservationControllerUnitTest {
 
     @MockitoBean private ReservationService reservationService;
 
-    // --- CONFIGURACIÓN PARA MOCKS DE SEGURIDAD (Evita error ApplicationContext) ---
+    // SOLUCIÓN: Mockear el servicio requerido por el filtro RateLimitFilter
+    @MockitoBean
+    private RateLimitingService rateLimitingService;
+
+    // Configurar el mock del RateLimiter antes de cada test
+    @BeforeEach
+    void setUpRateLimiter() {
+        // 1. Crear un Bucket mock
+        Bucket mockBucket = Mockito.mock(Bucket.class);
+        // 2. Configurar el bucket para que siempre permita el consumo (devuelva true)
+        when(mockBucket.tryConsume(1)).thenReturn(true);
+
+        // 3. Configurar el servicio para que devuelva ese bucket mock cuando se le llame
+        when(rateLimitingService.resolveBucket(anyString())).thenReturn(mockBucket);
+    }
+
+    //  CONFIGURACIÓN PARA MOCKS DE SEGURIDAD
     @TestConfiguration
     static class SecurityTestConfig {
         @Bean
@@ -65,24 +84,24 @@ class ReservationControllerUnitTest {
     // --- DATOS DE PRUEBA ---
     private final String STUDENT_EMAIL = "student@ufromail.cl";
     private final String ADMIN_EMAIL = "admin@ufromail.cl";
-    
+
     // Configuración OAuth2 para Estudiante
-    private final SecurityMockMvcRequestPostProcessors.OAuth2LoginRequestPostProcessor studentLogin = 
+    private final SecurityMockMvcRequestPostProcessors.OAuth2LoginRequestPostProcessor studentLogin =
             oauth2Login()
-            .attributes(attrs -> {
-                attrs.put("email", STUDENT_EMAIL);
-                attrs.put("name", "Student User");
-            })
-            .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"));
+                    .attributes(attrs -> {
+                        attrs.put("email", STUDENT_EMAIL);
+                        attrs.put("name", "Student User");
+                    })
+                    .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"));
 
     // Configuración OAuth2 para Admin
-    private final SecurityMockMvcRequestPostProcessors.OAuth2LoginRequestPostProcessor adminLogin = 
+    private final SecurityMockMvcRequestPostProcessors.OAuth2LoginRequestPostProcessor adminLogin =
             oauth2Login()
-            .attributes(attrs -> {
-                attrs.put("email", ADMIN_EMAIL);
-                attrs.put("name", "Admin User");
-            })
-            .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                    .attributes(attrs -> {
+                        attrs.put("email", ADMIN_EMAIL);
+                        attrs.put("name", "Admin User");
+                    })
+                    .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
 
 
     // =================================================================================================
@@ -115,7 +134,7 @@ class ReservationControllerUnitTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isUnauthorized()); 
+                .andExpect(status().isUnauthorized());
     }
 
     // =================================================================================================
@@ -147,24 +166,21 @@ class ReservationControllerUnitTest {
     @Test
     @DisplayName("createOnBehalf() debe devolver 403 FORBIDDEN si es STUDENT")
     void createOnBehalf_ShouldReturnForbidden_IfStudent() throws Exception {
-        // CORRECCIÓN CLAVE: Usar un payload JSON simple y VÁLIDO (fechas en el futuro y start < end)
-        // Esto elimina cualquier posible error de serialización o validación de fechas/duración que cause el 500.
         String validPayload = "{"
-            + "\"roomId\": 1,"
-            + "\"startAt\": \"" + ZonedDateTime.now().plusDays(5).withHour(10) + "\","
-            + "\"endAt\": \"" + ZonedDateTime.now().plusDays(5).withHour(11) + "\","
-            + "\"othersEmail\": \"other@ufro.cl\""
-            + "}";
+                + "\"roomId\": 1,"
+                + "\"startAt\": \"" + ZonedDateTime.now().plusDays(5).withHour(10) + "\","
+                + "\"endAt\": \"" + ZonedDateTime.now().plusDays(5).withHour(11) + "\","
+                + "\"othersEmail\": \"other@ufromail.cl\""
+                + "}";
 
-        // AISLAMIENTO: Si el filtro de seguridad falla, el servicio no debe lanzar 500
         doNothing().when(reservationService).createOnBehalf(anyString(), anyString(), any());
-        
+
         mockMvc.perform(post("/api/v1/reservations/on-behalf")
-                        .with(studentLogin) // Login de Estudiante (ROL_STUDENT)
+                        .with(studentLogin)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validPayload)) // Usamos el String JSON simple
-                .andExpect(status().isForbidden()); // Esperamos el 403 del @PreAuthorize
+                        .content(validPayload))
+                .andExpect(status().isForbidden());
     }
 
     // =================================================================================================
@@ -177,7 +193,7 @@ class ReservationControllerUnitTest {
         ReservationDto.MyReservationsResponse mockResponse = new ReservationDto.MyReservationsResponse(
                 null, Collections.emptyList(), Collections.emptyList()
         );
-        
+
         when(reservationService.getMyReservations(STUDENT_EMAIL)).thenReturn(mockResponse);
 
         mockMvc.perform(get("/api/v1/reservations/my-reservations")
@@ -229,13 +245,12 @@ class ReservationControllerUnitTest {
     @DisplayName("getByRoom() debe devolver 200 OK")
     void getByRoom_ShouldReturnOk() throws Exception {
         Long roomId = 1L;
-        // Asumiendo que el endpoint getByRoom está protegido por seguridad en el código de la aplicación.
         when(reservationService.getReservationsByRoom(roomId, ADMIN_EMAIL)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/room/{roomId}", roomId)
                         .with(adminLogin))
                 .andExpect(status().isOk());
-        
+
         verify(reservationService).getReservationsByRoom(roomId, ADMIN_EMAIL);
     }
 }
