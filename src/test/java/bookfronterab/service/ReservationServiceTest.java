@@ -526,6 +526,11 @@ class ReservationServiceTest {
         roomRepository.save(room);
         ZonedDateTime zdt = nextMonday.withHour(18);
         ReservationDto.CreateRequest req = new ReservationDto.CreateRequest(1L,zdt,zdt.plusHours(1),false);
-        assertThrows(IllegalArgumentException.class,()->reservationService.createOnBehalf(user.getEmail(),"john.doe@example.com",req));
+
+        String userEmail = user.getEmail();
+
+        assertThrows(IllegalArgumentException.class, () ->
+                reservationService.createOnBehalf(userEmail, "john.doe@example.com", req)
+        );
     }
 }
