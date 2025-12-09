@@ -193,7 +193,7 @@ class AvailabilityServiceTest {
     }
     
     /**
-     * Verifica que una reserva que abarca todo el horario de servicio o más,
+     * Verifica que una reserva que abarca el horario de servicio o más,
      * marque todos los slots como ocupados para esa sala.
      */
     @Test

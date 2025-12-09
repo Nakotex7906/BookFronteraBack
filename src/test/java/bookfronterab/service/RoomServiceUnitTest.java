@@ -302,7 +302,7 @@ class RoomServiceUnitTest {
         Room existing = Room.builder().id(1L).name("Viejo").capacity(5).floor(1).build();
         when(roomRepo.findById(1L)).thenReturn(Optional.of(existing));
 
-        // DTO de reemplazo (debería sobrescribir todo)
+        // DTO de reemplazo (debería sobrescribir)
         RoomDto putDto = RoomDto.builder()
                 .name("Reemplazo")
                 .capacity(50)
