@@ -33,6 +33,7 @@ public class SecurityConfig {
     private String allowedOrigins;
 
     @Bean
+    @SuppressWarnings("java:S3330")
 SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
         requestHandler.setCsrfRequestAttributeName(null);
