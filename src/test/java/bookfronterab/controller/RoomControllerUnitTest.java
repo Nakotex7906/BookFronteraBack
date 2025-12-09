@@ -65,8 +65,8 @@ class RoomControllerUnitTest {
     private final MockMultipartFile mockImage = new MockMultipartFile(
             "image", "test.jpg", "image/jpeg", "image data".getBytes());
 
-    private final String ADMIN_USER = "admin@ufro.cl";
-    private final String STUDENT_USER = "student@ufro.cl";
+    private final String adminUser = "admin@ufro.cl";
+    private final String studentUser = "student@ufro.cl";
 
     @TestConfiguration
     static class SecurityTestConfig {
@@ -93,7 +93,7 @@ class RoomControllerUnitTest {
 
     @Test
     @DisplayName("GET /rooms (ADMIN) debe devolver 200 OK y la lista")
-    @WithMockUser(username = ADMIN_USER, roles = {"ADMIN"})
+    @WithMockUser(username = adminUser, roles = {"ADMIN"})
     void getAllRooms_AsAdmin_ShouldReturnOk() throws Exception {
         when(roomService.getAllRooms()).thenReturn(List.of(mockRoomDto));
 
@@ -106,7 +106,7 @@ class RoomControllerUnitTest {
 
     @Test
     @DisplayName("GET /rooms (STUDENT) debe denegar acceso (403 FORBIDDEN)")
-    @WithMockUser(username = STUDENT_USER, roles = {"STUDENT"})
+    @WithMockUser(username = studentUser, roles = {"STUDENT"})
     void getAllRooms_AsStudent_ShouldReturnForbidden() throws Exception {
         mockMvc.perform(get("/api/v1/rooms"))
                 .andExpect(status().isForbidden());
@@ -120,7 +120,7 @@ class RoomControllerUnitTest {
 
     @Test
     @DisplayName("POST /rooms (ADMIN) debe crear sala y devolver 201 CREATED")
-    @WithMockUser(username = ADMIN_USER, roles = {"ADMIN"})
+    @WithMockUser(username = adminUser, roles = {"ADMIN"})
     void createRoom_AsAdmin_ShouldReturnCreated() throws Exception {
         when(roomService.createRoom(any(RoomDto.class), any())).thenReturn(mockRoomDto);
         MockMultipartFile roomPart = new MockMultipartFile(
@@ -154,7 +154,7 @@ class RoomControllerUnitTest {
 
     @Test
     @DisplayName("DELETE /rooms/{id} (ADMIN) debe eliminar y devolver 204 NO_CONTENT")
-    @WithMockUser(username = ADMIN_USER, roles = {"ADMIN"})
+    @WithMockUser(username = adminUser, roles = {"ADMIN"})
     void deleteRoom_AsAdmin_ShouldReturnNoContent() throws Exception {
         doNothing().when(roomService).delateRoom(1L);
 
@@ -167,7 +167,7 @@ class RoomControllerUnitTest {
 
     @Test
     @DisplayName("DELETE /rooms/{id} (STUDENT) debe denegar acceso (403 FORBIDDEN)")
-    @WithMockUser(username = STUDENT_USER, roles = {"STUDENT"})
+    @WithMockUser(username = studentUser, roles = {"STUDENT"})
     void deleteRoom_AsStudent_ShouldReturnForbidden() throws Exception {
         mockMvc.perform(delete("/api/v1/rooms/{id}", 1L)
                         .with(csrf()))
@@ -178,7 +178,7 @@ class RoomControllerUnitTest {
 
     @Test
     @DisplayName("PATCH /rooms/{id} (ADMIN) debe actualizar sala y devolver 200 OK")
-    @WithMockUser(username = ADMIN_USER, roles = {"ADMIN"})
+    @WithMockUser(username = adminUser, roles = {"ADMIN"})
     void patchRoom_AsAdmin_ShouldReturnOk() throws Exception {
         when(roomService.patchRoom(anyLong(), any(RoomDto.class), any())).thenReturn(mockRoomDto);
         MockMultipartFile roomPart = new MockMultipartFile(
@@ -201,7 +201,7 @@ class RoomControllerUnitTest {
 
     @Test
     @DisplayName("PATCH /rooms/{id} (STUDENT) debe denegar acceso (403 FORBIDDEN)")
-    @WithMockUser(username = STUDENT_USER, roles = {"STUDENT"})
+    @WithMockUser(username = studentUser, roles = {"STUDENT"})
     void patchRoom_AsStudent_ShouldReturnForbidden() throws Exception {
         MockMultipartFile roomPart = new MockMultipartFile(
                 "room", "", "application/json", objectMapper.writeValueAsBytes(mockRoomDto));
@@ -220,7 +220,7 @@ class RoomControllerUnitTest {
 
     @Test
     @DisplayName("PUT /rooms/{id} (ADMIN) debe actualizar sala y devolver 200 OK")
-    @WithMockUser(username = ADMIN_USER, roles = {"ADMIN"})
+    @WithMockUser(username = adminUser, roles = {"ADMIN"})
     void putRoom_AsAdmin_ShouldReturnOk() throws Exception {
         when(roomService.putRoom(anyLong(), any(RoomDto.class))).thenReturn(mockRoomDto);
 

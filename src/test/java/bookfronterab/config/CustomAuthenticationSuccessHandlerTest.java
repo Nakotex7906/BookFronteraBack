@@ -52,25 +52,25 @@ class CustomAuthenticationSuccessHandlerTest {
     @Captor
     private ArgumentCaptor<User> userCaptor;
 
-    private final String EMAIL = "test@ufromail.cl";
-    private final String NAME = "Test User";
-    private final ZoneId ZONE_ID = ZoneId.of("America/Santiago");
-    private final OffsetDateTime NOW = OffsetDateTime.now();
+    private final String email = "test@ufromail.cl";
+    private final String name = "Test User";
+    private final ZoneId zoneId = ZoneId.of("America/Santiago");
+    private final OffsetDateTime now = OffsetDateTime.now();
 
     @BeforeEach
     void setUp() {
         // Configuración común de mocks para evitar repetición
         when(authentication.getPrincipal()).thenReturn(oauth2User);
-        when(oauth2User.getAttributes()).thenReturn(Map.of("email", EMAIL, "name", NAME));
+        when(oauth2User.getAttributes()).thenReturn(Map.of("email", email, "name", name));
     }
 
     @Test
     @DisplayName("Debe crear un NUEVO usuario (STUDENT) y guardar tokens si no existe en BD")
     void onAuthenticationSuccess_ShouldCreateNewUser() throws IOException {
         // Arrange
-        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
-        when(timeService.nowOffset()).thenReturn(NOW);
-        when(timeService.zone()).thenReturn(ZONE_ID);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+        when(timeService.nowOffset()).thenReturn(now);
+        when(timeService.zone()).thenReturn(zoneId);
 
         // Mockear el cliente OAuth2 y sus tokens
         setupOAuth2ClientMock("access-123", "refresh-123", Instant.now().plusSeconds(3600));
@@ -82,8 +82,8 @@ class CustomAuthenticationSuccessHandlerTest {
         verify(userRepository).save(userCaptor.capture());
         User savedUser = userCaptor.getValue();
 
-        assertEquals(EMAIL, savedUser.getEmail());
-        assertEquals(NAME, savedUser.getNombre());
+        assertEquals(email, savedUser.getEmail());
+        assertEquals(name, savedUser.getNombre());
         assertEquals(UserRole.STUDENT, savedUser.getRol()); // Verifica rol por defecto
         assertEquals("access-123", savedUser.getGoogleAccessToken());
         assertEquals("refresh-123", savedUser.getGoogleRefreshToken());
@@ -98,12 +98,12 @@ class CustomAuthenticationSuccessHandlerTest {
         // Arrange
         User existingUser = new User();
         existingUser.setId(1L);
-        existingUser.setEmail(EMAIL);
+        existingUser.setEmail(email);
         existingUser.setNombre("Old Name");
         existingUser.setRol(UserRole.ADMIN); // Un admin existente no debe cambiar a student
 
-        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(existingUser));
-        when(timeService.zone()).thenReturn(ZONE_ID);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(existingUser));
+        when(timeService.zone()).thenReturn(zoneId);
 
         // Mockear nuevos tokens
         setupOAuth2ClientMock("new-access-token", "new-refresh-token", Instant.now().plusSeconds(3600));
@@ -116,7 +116,7 @@ class CustomAuthenticationSuccessHandlerTest {
         User savedUser = userCaptor.getValue();
 
         assertEquals(1L, savedUser.getId()); // Mismo ID
-        assertEquals(NAME, savedUser.getNombre()); // Nombre actualizado
+        assertEquals(name, savedUser.getNombre()); // Nombre actualizado
         assertEquals(UserRole.ADMIN, savedUser.getRol()); // Rol mantenido
         assertEquals("new-access-token", savedUser.getGoogleAccessToken());
         
@@ -127,8 +127,8 @@ class CustomAuthenticationSuccessHandlerTest {
     @DisplayName("Debe manejar el caso donde el cliente autorizado es NULL (sin tokens)")
     void onAuthenticationSuccess_ShouldHandleNullClient() throws IOException {
         // Arrange
-        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
-        when(timeService.nowOffset()).thenReturn(NOW);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+        when(timeService.nowOffset()).thenReturn(now);
 
         // Simulamos que authorizedClientService devuelve null
         when(authentication.getAuthorizedClientRegistrationId()).thenReturn("google");
@@ -143,7 +143,7 @@ class CustomAuthenticationSuccessHandlerTest {
         User savedUser = userCaptor.getValue();
         
         // El usuario se guarda, pero sin tokens
-        assertEquals(EMAIL, savedUser.getEmail());
+        assertEquals(email, savedUser.getEmail());
         assertNull(savedUser.getGoogleAccessToken());
         
         // La redirección ocurre igual
@@ -154,8 +154,8 @@ class CustomAuthenticationSuccessHandlerTest {
     @DisplayName("Debe manejar tokens con fecha de expiración nula")
     void onAuthenticationSuccess_ShouldHandleNullExpiry() throws IOException {
         // Arrange
-        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
-        when(timeService.nowOffset()).thenReturn(NOW);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+        when(timeService.nowOffset()).thenReturn(now);
 
         // Mockear token SIN fecha de expiración
         setupOAuth2ClientMock("access-token", null, null); // Expiry null
@@ -175,9 +175,9 @@ class CustomAuthenticationSuccessHandlerTest {
     @DisplayName("Debe manejar refresh token nulo (común en logins sucesivos)")
     void onAuthenticationSuccess_ShouldHandleNullRefreshToken() throws IOException {
         // Arrange
-        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
-        when(timeService.nowOffset()).thenReturn(NOW);
-        when(timeService.zone()).thenReturn(ZONE_ID);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+        when(timeService.nowOffset()).thenReturn(now);
+        when(timeService.zone()).thenReturn(zoneId);
 
         // Mockear token CON access pero SIN refresh
         setupOAuth2ClientMock("access-token", null, Instant.now()); 

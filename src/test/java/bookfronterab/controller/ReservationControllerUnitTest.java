@@ -82,14 +82,14 @@ class ReservationControllerUnitTest {
     }
 
     // --- DATOS DE PRUEBA ---
-    private final String STUDENT_EMAIL = "student@ufromail.cl";
-    private final String ADMIN_EMAIL = "admin@ufromail.cl";
+    private final String studentEmail = "student@ufromail.cl";
+    private final String adminEmail = "admin@ufromail.cl";
 
     // Configuración OAuth2 para Estudiante
     private final SecurityMockMvcRequestPostProcessors.OAuth2LoginRequestPostProcessor studentLogin =
             oauth2Login()
                     .attributes(attrs -> {
-                        attrs.put("email", STUDENT_EMAIL);
+                        attrs.put("email", studentEmail);
                         attrs.put("name", "Student User");
                     })
                     .authorities(new SimpleGrantedAuthority("ROLE_STUDENT"));
@@ -98,7 +98,7 @@ class ReservationControllerUnitTest {
     private final SecurityMockMvcRequestPostProcessors.OAuth2LoginRequestPostProcessor adminLogin =
             oauth2Login()
                     .attributes(attrs -> {
-                        attrs.put("email", ADMIN_EMAIL);
+                        attrs.put("email", adminEmail);
                         attrs.put("name", "Admin User");
                     })
                     .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
@@ -122,7 +122,7 @@ class ReservationControllerUnitTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated());
 
-        verify(reservationService).create(eq(STUDENT_EMAIL), any(ReservationDto.CreateRequest.class));
+        verify(reservationService).create(eq(studentEmail), any(ReservationDto.CreateRequest.class));
     }
 
     @Test
@@ -149,7 +149,7 @@ class ReservationControllerUnitTest {
                 1L,
                 ZonedDateTime.now().plusHours(1),
                 ZonedDateTime.now().plusHours(2),
-                STUDENT_EMAIL,
+                studentEmail,
                 false
         );
 
@@ -160,7 +160,7 @@ class ReservationControllerUnitTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated());
 
-        verify(reservationService).createOnBehalf(eq(ADMIN_EMAIL), eq(STUDENT_EMAIL), any());
+        verify(reservationService).createOnBehalf(eq(adminEmail), eq(studentEmail), any());
     }
 
     @Test
@@ -194,13 +194,13 @@ class ReservationControllerUnitTest {
                 null, Collections.emptyList(), Collections.emptyList()
         );
 
-        when(reservationService.getMyReservations(STUDENT_EMAIL)).thenReturn(mockResponse);
+        when(reservationService.getMyReservations(studentEmail)).thenReturn(mockResponse);
 
         mockMvc.perform(get("/api/v1/reservations/my-reservations")
                         .with(studentLogin))
                 .andExpect(status().isOk());
 
-        verify(reservationService).getMyReservations(STUDENT_EMAIL);
+        verify(reservationService).getMyReservations(studentEmail);
     }
 
     // =================================================================================================
@@ -234,7 +234,7 @@ class ReservationControllerUnitTest {
                         .with(csrf()))
                 .andExpect(status().isNoContent());
 
-        verify(reservationService).cancel(resId, STUDENT_EMAIL);
+        verify(reservationService).cancel(resId, studentEmail);
     }
 
     // =================================================================================================
@@ -245,12 +245,12 @@ class ReservationControllerUnitTest {
     @DisplayName("getByRoom() debe devolver 200 OK")
     void getByRoom_ShouldReturnOk() throws Exception {
         Long roomId = 1L;
-        when(reservationService.getReservationsByRoom(roomId, ADMIN_EMAIL)).thenReturn(List.of());
+        when(reservationService.getReservationsByRoom(roomId, adminEmail)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/room/{roomId}", roomId)
                         .with(adminLogin))
                 .andExpect(status().isOk());
 
-        verify(reservationService).getReservationsByRoom(roomId, ADMIN_EMAIL);
+        verify(reservationService).getReservationsByRoom(roomId, adminEmail);
     }
 }
