@@ -3,6 +3,7 @@ package bookfronterab.controller;
 import bookfronterab.model.User;
 import bookfronterab.model.UserRole;
 import bookfronterab.repo.UserRepository;
+import bookfronterab.service.RateLimitingService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,10 @@ class UserControllerUnitTest {
     @MockitoBean
     private UserRepository userRepository;
 
+    // Mockear la dependencia que rompe el contexto
+    @MockitoBean
+    private RateLimitingService rateLimitingService;
+
     // Variables para simular la seguridad compleja
     private OAuth2User oauth2UserMock;
     private OAuth2AuthenticationToken oauth2AuthToken;
@@ -49,11 +54,10 @@ class UserControllerUnitTest {
         when(oauth2UserMock.getAttribute("email")).thenReturn("student@test.com");
 
         // 2. Preparamos el Token de Autenticación Específico
-        // El controlador hace un cast a (OAuth2AuthenticationToken), así que necesitamos este tipo exacto.
         oauth2AuthToken = new OAuth2AuthenticationToken(
                 oauth2UserMock,
                 List.of(new SimpleGrantedAuthority("ROLE_STUDENT")),
-                "google" // registrationId dummy
+                "google"
         );
 
         // 3. Inyectamos la seguridad en el contexto global
@@ -69,7 +73,6 @@ class UserControllerUnitTest {
 
     @Test
     void getMe_DeberiaRetornarUsuario_CuandoExiste() throws Exception {
-        // Preparamos un usuario de base de datos
         User userEntity = new User();
         userEntity.setId(1L);
         userEntity.setEmail("student@test.com");
@@ -86,7 +89,6 @@ class UserControllerUnitTest {
 
     @Test
     void getMe_DeberiaRetornarNotFound_CuandoNoExisteEnBD() throws Exception {
-        // El usuario está logueado en Google, pero no existe en nuestra BD local
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/v1/users/me"))
@@ -95,7 +97,6 @@ class UserControllerUnitTest {
 
     @Test
     void getMe_DeberiaRetornarUnauthorized_CuandoNoHayPrincipal() throws Exception {
-        // Borramos el contexto de seguridad para simular usuario no logueado
         SecurityContextHolder.clearContext();
 
         mockMvc.perform(get("/api/v1/users/me"))
@@ -106,7 +107,6 @@ class UserControllerUnitTest {
 
     @Test
     void toggleRole_DeberiaCambiarDeStudentAAdmin() throws Exception {
-        // 1. Estado inicial: Usuario es STUDENT
         User userEntity = new User();
         userEntity.setId(1L);
         userEntity.setEmail("student@test.com");
@@ -114,51 +114,40 @@ class UserControllerUnitTest {
 
         when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(userEntity));
 
-        // 2. Simulamos el guardado: cuando guarden, devolvemos el usuario con el rol cambiado
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             return invocation.getArgument(0);
         });
 
-        // 3. Ejecutar
         mockMvc.perform(patch("/api/v1/users/toggle-role"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.rol").value("ADMIN")); // Verificamos que cambió en la respuesta
+                .andExpect(jsonPath("$.rol").value("ADMIN"));
 
-        // 4. Verificamos que se llamó al repositorio para guardar
         verify(userRepository).save(any(User.class));
     }
 
     @Test
     void toggleRole_DeberiaCambiarDeAdminAStudent() throws Exception {
-        // 1. Estado inicial: Usuario es ADMIN
         User userEntity = new User();
         userEntity.setEmail("student@test.com");
-        userEntity.setRol(UserRole.ADMIN); // Es ADMIN
+        userEntity.setRol(UserRole.ADMIN);
 
         when(userRepository.findByEmail("student@test.com")).thenReturn(Optional.of(userEntity));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // 2. Ejecutar
         mockMvc.perform(patch("/api/v1/users/toggle-role"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.rol").value("STUDENT")); // Debe cambiar a STUDENT
+                .andExpect(jsonPath("$.rol").value("STUDENT"));
     }
 
     @Test
-void toggleRole_DeberiaFallar_CuandoUsuarioNoExisteEnBD() throws Exception {
-    // 1. Arrange: El repositorio no encuentra al usuario
-    when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+    void toggleRole_DeberiaFallar_CuandoUsuarioNoExisteEnBD() throws Exception {
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
-    // 2. Ejecutar y Verificar
-    mockMvc.perform(patch("/api/v1/users/toggle-role"))
-            
-            // 3. CORRECCIÓN: Esperamos 400 Bad Request, según la regla del GlobalExceptionHandler para IllegalStateException
-            .andExpect(status().isBadRequest()) 
-            
-            // 4. Verificamos que la CAUSA del 400 fue la IllegalStateException
-            .andExpect(result -> {
-                assertTrue(result.getResolvedException() instanceof IllegalStateException, 
-                           "Se esperaba IllegalStateException al no encontrar el usuario.");
-            });
-}
+        mockMvc.perform(patch("/api/v1/users/toggle-role"))
+                .andExpect(status().isBadRequest())
+                .andExpect(result -> {
+                    assertTrue(result.getResolvedException() instanceof IllegalStateException,
+                            "Se esperaba IllegalStateException al no encontrar el usuario.");
+                });
+    }
 }
