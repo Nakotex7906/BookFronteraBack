@@ -8,14 +8,22 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.filter.OncePerRequestFilter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 
 import java.util.List;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 @Configuration
@@ -39,10 +47,8 @@ SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         requestHandler.setCsrfRequestAttributeName(null);
     http
             .cors(cors -> cors.configurationSource(corsConfig()))
-            .csrf(csrf -> csrf
-                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                    .csrfTokenRequestHandler(requestHandler)
-            )
+            //Desactivamos CSRF para evitar problemas entre Vercel y Render
+            .csrf(AbstractHttpConfigurer::disable)
             .headers(headers -> headers
                     .frameOptions(HeadersConfigurer.FrameOptionsConfig::deny)
                     .xssProtection(HeadersConfigurer.XXssConfig::disable)
@@ -73,11 +79,13 @@ SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
             )
             .logout(logout -> logout
                     .logoutUrl("/api/v1/logout")
-                    .logoutSuccessUrl("http://localhost:5173")
+                    .logoutSuccessHandler((request, response, authentication) ->
+                            response.setStatus(HttpServletResponse.SC_OK)
+                    )
                     .invalidateHttpSession(true)
                     .deleteCookies("JSESSIONID")
             );
-
+        http.addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
     return http.build();
 }
     @Bean
@@ -92,4 +100,21 @@ SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         source.registerCorsConfiguration("/**", cfg);
         return source;
     }
+
+    // Clase auxiliar para forzar la carga del token CSRF
+    class CsrfCookieFilter extends OncePerRequestFilter {
+
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+                throws ServletException, IOException {
+            // Obliga a Spring a cargar el token diferido
+            CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+            if (csrfToken != null) {
+                // Invocar .getToken() hace que se escriba la cookie
+                csrfToken.getToken();
+            }
+            filterChain.doFilter(request, response);
+        }
+    }
+
 }
