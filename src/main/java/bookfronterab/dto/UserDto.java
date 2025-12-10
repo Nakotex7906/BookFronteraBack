@@ -11,4 +11,5 @@ public class UserDto {
     private String email;
     private String nombre;
     private UserRole rol;
+    private boolean canSwitchRole;
 }
