@@ -23,6 +23,7 @@ import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -56,12 +57,17 @@ class CustomAuthenticationSuccessHandlerTest {
     private final String name = "Test User";
     private final ZoneId zoneId = ZoneId.of("America/Santiago");
     private final OffsetDateTime now = OffsetDateTime.now();
+    private final String FRONTEND_URL = "http://localhost:5173";
 
     @BeforeEach
-    void setUp() {
-        // Configuración común de mocks para evitar repetición
+    void setUp() throws NoSuchFieldException, IllegalAccessException {
         when(authentication.getPrincipal()).thenReturn(oauth2User);
         when(oauth2User.getAttributes()).thenReturn(Map.of("email", email, "name", name));
+
+        // Inyección manual del valor @Value para el test unitario
+        Field frontendUrlField = CustomAuthenticationSuccessHandler.class.getDeclaredField("frontendUrl");
+        frontendUrlField.setAccessible(true);
+        frontendUrlField.set(successHandler, FRONTEND_URL);
     }
 
     @Test
@@ -89,7 +95,7 @@ class CustomAuthenticationSuccessHandlerTest {
         assertEquals("refresh-123", savedUser.getGoogleRefreshToken());
         assertNotNull(savedUser.getGoogleTokenExpiryDate());
         
-        verify(response).sendRedirect("http://localhost:5173");
+        verify(response).sendRedirect(FRONTEND_URL);
     }
 
     @Test
@@ -120,7 +126,7 @@ class CustomAuthenticationSuccessHandlerTest {
         assertEquals(UserRole.ADMIN, savedUser.getRol()); // Rol mantenido
         assertEquals("new-access-token", savedUser.getGoogleAccessToken());
         
-        verify(response).sendRedirect("http://localhost:5173");
+        verify(response).sendRedirect(FRONTEND_URL);
     }
 
     @Test
@@ -147,7 +153,7 @@ class CustomAuthenticationSuccessHandlerTest {
         assertNull(savedUser.getGoogleAccessToken());
         
         // La redirección ocurre igual
-        verify(response).sendRedirect("http://localhost:5173");
+        verify(response).sendRedirect(FRONTEND_URL);
     }
 
     @Test
@@ -169,6 +175,8 @@ class CustomAuthenticationSuccessHandlerTest {
 
         assertEquals("access-token", savedUser.getGoogleAccessToken());
         assertNull(savedUser.getGoogleTokenExpiryDate()); // No debe explotar
+        
+        verify(response).sendRedirect(FRONTEND_URL);
     }
 
     @Test
@@ -191,6 +199,8 @@ class CustomAuthenticationSuccessHandlerTest {
 
         assertEquals("access-token", savedUser.getGoogleAccessToken());
         assertNull(savedUser.getGoogleRefreshToken());
+        
+        verify(response).sendRedirect(FRONTEND_URL);
     }
 
     // --- Helper Method para configurar los mocks profundos de OAuth2 ---
