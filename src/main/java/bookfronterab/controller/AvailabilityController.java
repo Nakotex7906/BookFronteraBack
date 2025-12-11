@@ -19,7 +19,7 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/api/v1/availability")
 @RequiredArgsConstructor
-public class AvailabilityController {
+public class    AvailabilityController {
 
     private final AvailabilityService availabilityService;
     private final TimeService timeService; // Para obtener la fecha de "hoy"
