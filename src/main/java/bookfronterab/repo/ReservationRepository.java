@@ -2,6 +2,7 @@ package bookfronterab.repo;
 
 import bookfronterab.model.Reservation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -70,5 +71,14 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             ZonedDateTime end,
             Long excludedId
     );
+
+    /**
+     * Elimina todas las reservas asociadas a una sala específica.
+     * Se utiliza antes de eliminar una sala para mantener la integridad referencial.
+     * * @param roomId El ID de la sala cuyas reservas se eliminarán.
+     */
+    @Modifying // Modifica la db
+    @Query("DELETE FROM Reservation r WHERE r.room.id = :roomId")
+    void deleteByRoomId(@Param("roomId") Long roomId);
 
 }

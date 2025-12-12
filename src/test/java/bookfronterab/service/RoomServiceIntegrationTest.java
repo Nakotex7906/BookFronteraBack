@@ -175,7 +175,7 @@ class RoomServiceIntegrationTest {
     void deleteRoom_ShouldRemoveFromDb() {
         Room r = roomRepository.save(Room.builder().name("Borrar").capacity(5).build());
 
-        roomService.delateRoom(r.getId());
+        roomService.deleteRoom(r.getId());
 
         Optional<Room> check = roomRepository.findById(r.getId());
         assertTrue(check.isEmpty());

@@ -176,7 +176,7 @@ class RoomServiceUnitTest {
         Long roomId = 5L;
         
         // Act
-        roomService.delateRoom(roomId);
+        roomService.deleteRoom(roomId);
 
         // Assert: Verifica que roomRepo.deleteById() fue llamado exactamente con el ID.
         verify(roomRepo).deleteById(roomId);

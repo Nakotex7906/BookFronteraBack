@@ -156,13 +156,13 @@ class RoomControllerUnitTest {
     @DisplayName("DELETE /rooms/{id} (ADMIN) debe eliminar y devolver 204 NO_CONTENT")
     @WithMockUser(username = adminUser, roles = {"ADMIN"})
     void deleteRoom_AsAdmin_ShouldReturnNoContent() throws Exception {
-        doNothing().when(roomService).delateRoom(1L);
+        doNothing().when(roomService).deleteRoom(1L);
 
         mockMvc.perform(delete("/api/v1/rooms/{id}", 1L)
                         .with(csrf()))
                 .andExpect(status().isNoContent());
 
-        verify(roomService).delateRoom(1L);
+        verify(roomService).deleteRoom(1L);
     }
 
     @Test
@@ -173,7 +173,7 @@ class RoomControllerUnitTest {
                         .with(csrf()))
                 .andExpect(status().isForbidden());
 
-        verify(roomService, never()).delateRoom(anyLong());
+        verify(roomService, never()).deleteRoom(anyLong());
     }
 
     @Test
