@@ -57,7 +57,7 @@ class CustomAuthenticationSuccessHandlerTest {
     private final String name = "Test User";
     private final ZoneId zoneId = ZoneId.of("America/Santiago");
     private final OffsetDateTime now = OffsetDateTime.now();
-    private final String FRONTEND_URL = "http://localhost:5173";
+    private final String frontendURL = "http://localhost:5173";
 
     @BeforeEach
     void setUp() throws NoSuchFieldException, IllegalAccessException {
@@ -67,7 +67,7 @@ class CustomAuthenticationSuccessHandlerTest {
         // Inyección manual del valor @Value para el test unitario
         Field frontendUrlField = CustomAuthenticationSuccessHandler.class.getDeclaredField("frontendUrl");
         frontendUrlField.setAccessible(true);
-        frontendUrlField.set(successHandler, FRONTEND_URL);
+        frontendUrlField.set(successHandler, frontendURL);
     }
 
     @Test
@@ -95,7 +95,7 @@ class CustomAuthenticationSuccessHandlerTest {
         assertEquals("refresh-123", savedUser.getGoogleRefreshToken());
         assertNotNull(savedUser.getGoogleTokenExpiryDate());
         
-        verify(response).sendRedirect(FRONTEND_URL);
+        verify(response).sendRedirect(frontendURL);
     }
 
     @Test
@@ -126,7 +126,7 @@ class CustomAuthenticationSuccessHandlerTest {
         assertEquals(UserRole.ADMIN, savedUser.getRol()); // Rol mantenido
         assertEquals("new-access-token", savedUser.getGoogleAccessToken());
         
-        verify(response).sendRedirect(FRONTEND_URL);
+        verify(response).sendRedirect(frontendURL);
     }
 
     @Test
@@ -153,7 +153,7 @@ class CustomAuthenticationSuccessHandlerTest {
         assertNull(savedUser.getGoogleAccessToken());
         
         // La redirección ocurre igual
-        verify(response).sendRedirect(FRONTEND_URL);
+        verify(response).sendRedirect(frontendURL);
     }
 
     @Test
@@ -176,7 +176,7 @@ class CustomAuthenticationSuccessHandlerTest {
         assertEquals("access-token", savedUser.getGoogleAccessToken());
         assertNull(savedUser.getGoogleTokenExpiryDate()); // No debe explotar
         
-        verify(response).sendRedirect(FRONTEND_URL);
+        verify(response).sendRedirect(frontendURL);
     }
 
     @Test
@@ -200,7 +200,7 @@ class CustomAuthenticationSuccessHandlerTest {
         assertEquals("access-token", savedUser.getGoogleAccessToken());
         assertNull(savedUser.getGoogleRefreshToken());
         
-        verify(response).sendRedirect(FRONTEND_URL);
+        verify(response).sendRedirect(frontendURL);
     }
 
     // --- Helper Method para configurar los mocks profundos de OAuth2 ---
