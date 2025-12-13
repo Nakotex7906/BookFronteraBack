@@ -3,6 +3,7 @@ package bookfronterab.service;
 import bookfronterab.dto.RoomDto;
 import bookfronterab.exception.ResourceNotFoundException;
 import bookfronterab.model.Room;
+import bookfronterab.repo.ReservationRepository;
 import bookfronterab.repo.RoomRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,9 @@ class RoomServiceUnitTest {
     // Mock del servicio Cloudinary para simular la subida de imágenes.
     @Mock
     private CloudinaryService cloudinaryService;
+
+    @Mock
+    private ReservationRepository reservationRepo;
 
     // Inyecta los mocks anteriores en la instancia real de RoomService (el SUT - System Under Test).
     @InjectMocks
@@ -172,14 +176,19 @@ class RoomServiceUnitTest {
      */
     @Test
     @DisplayName("Unitario: delateRoom elimina por ID")
-    void delateRoom_ShouldCallDeleteById() {
+    void deleteRoom_ShouldCallDeleteById() {
         Long roomId = 5L;
-        
-        // Act
+        Room mockRoom = new Room();
+        mockRoom.setId(roomId);
+        mockRoom.setName("Sala Test");
+
+        when(roomRepo.findById(roomId)).thenReturn(Optional.of(mockRoom));
+
+        when(reservationRepo.findByRoomIdOrderByStartAtAsc(roomId)).thenReturn(Collections.emptyList());
+
         roomService.deleteRoom(roomId);
 
-        // Assert: Verifica que roomRepo.deleteById() fue llamado exactamente con el ID.
-        verify(roomRepo).deleteById(roomId);
+        verify(roomRepo).delete(mockRoom);
     }
 
     // ================================================================

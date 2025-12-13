@@ -1,15 +1,11 @@
 package bookfronterab.config;
 
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value; // IMPORTANTE
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
-import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -18,33 +14,35 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class CustomAuthenticationFailureHandler extends SimpleUrlAuthenticationFailureHandler {
 
-    // 1. INYECTAMOS LA URL DEL FRONTEND DESDE LAS VARIABLES DE ENTORNO
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
 
+    /**
+     * Se ejecuta cuando la autenticación falla.
+     * Construye una URL de redirección hacia la página de login del frontend,
+     * adjuntando el motivo del error como parámetro de consulta.
+     *
+     * @param request   La solicitud HTTP.
+     * @param response  La respuesta HTTP.
+     * @param exception La excepción que causó el fallo de autenticación.
+     * @throws IOException Si ocurre un error de entrada/salida.
+     */
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
-                                        AuthenticationException exception) throws IOException, ServletException {
+                                        AuthenticationException exception) throws IOException {
 
+        // Obtener el mensaje de error. Priorizamos el mensaje de la excepción si existe.
         String errorMessage = "Error de autenticación. Por favor, inténtalo de nuevo.";
 
-        if (exception instanceof OAuth2AuthenticationException) {
-            String msg = exception.getMessage();
-            if (StringUtils.hasText(msg)) {
-                errorMessage = msg;
-            }
-        } else if (StringUtils.hasText(exception.getMessage())) {
+        if (exception != null && exception.getMessage() != null && !exception.getMessage().isBlank()) {
             errorMessage = exception.getMessage();
         }
 
-        // 2. USAMOS LA VARIABLE frontendUrl EN LUGAR DE "http://localhost:5173"
-        // Asegúrate de concatenar "/login"
-        String targetUrl = frontendUrl + "/login";
-
-        String redirectUrl = UriComponentsBuilder.fromUriString(targetUrl)
+        //  Construir la URL de redirección de forma segura
+        // Se usa URLEncoder para evitar problemas con espacios o caracteres especiales en el mensaje.
+        String redirectUrl = UriComponentsBuilder.fromUriString("http://localhost:5173/login")
                 .queryParam("error", URLEncoder.encode(errorMessage, StandardCharsets.UTF_8))
                 .build().toUriString();
 
+        // Realizar la redirección
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
 }
