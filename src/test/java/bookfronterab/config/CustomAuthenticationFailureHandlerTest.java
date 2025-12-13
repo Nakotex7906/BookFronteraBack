@@ -1,6 +1,5 @@
 package bookfronterab.config;
 
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +54,7 @@ class CustomAuthenticationFailureHandlerTest {
 
     @Test
     @DisplayName("Debe redirigir con el mensaje de la excepción genérica cuando está presente")
-    void onAuthenticationFailure_ShouldUseExceptionMessage_ForGenericException() throws IOException, ServletException {
+    void onAuthenticationFailure_ShouldUseExceptionMessage_ForGenericException() throws IOException {
         // Arrange
         final String EXPECTED_RAW_MESSAGE = "Credenciales malas. Por favor, verifica tus datos."; // Mensaje real de la excepción
         AuthenticationException genericException = new BadCredentialsException(EXPECTED_RAW_MESSAGE);
@@ -88,7 +87,7 @@ class CustomAuthenticationFailureHandlerTest {
 
     @Test
     @DisplayName("Debe redirigir con el mensaje POR DEFECTO si la excepción no tiene mensaje válido")
-    void onAuthenticationFailure_ShouldUseDefaultMessage_WhenNoExceptionMessage() throws IOException, ServletException {
+    void onAuthenticationFailure_ShouldUseDefaultMessage_WhenNoExceptionMessage() throws IOException {
         // Arrange
         // Usamos una excepción que tenga un mensaje nulo o vacío
         AuthenticationException mockException = mock(AuthenticationException.class);
@@ -119,7 +118,7 @@ class CustomAuthenticationFailureHandlerTest {
 
     @Test
     @DisplayName("Debe redirigir con el mensaje de la excepción si es OAuth2AuthenticationException")
-    void onAuthenticationFailure_ShouldUseExceptionMessage_ForOAuth2Exception() throws IOException, ServletException {
+    void onAuthenticationFailure_ShouldUseExceptionMessage_ForOAuth2Exception() throws IOException {
         // Arrange
         String specificError = "El token de Google ha expirado";
         OAuth2Error oauthError = new OAuth2Error("invalid_token");
@@ -141,7 +140,7 @@ class CustomAuthenticationFailureHandlerTest {
 
     @Test
     @DisplayName("Debe codificar correctamente caracteres especiales en la URL")
-    void onAuthenticationFailure_ShouldEncodeUrlParameters() throws IOException, ServletException {
+    void onAuthenticationFailure_ShouldEncodeUrlParameters() throws IOException {
         // Arrange
         // Mensaje con caracteres "peligrosos" para URL: espacios, ampersand, tildes
         String trickyMessage = "Error & Falla Crítica!"; 
