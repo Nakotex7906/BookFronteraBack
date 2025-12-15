@@ -31,7 +31,6 @@ import java.time.DayOfWeek;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAdjusters;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -283,7 +282,7 @@ class ReservationServiceTest {
 
         // Verificar
         verify(googleCalendarService).createEventForReservation(any(Reservation.class), anyString());
-        Reservation savedRes = reservationRepository.findAll().get(0);
+        Reservation savedRes = reservationRepository.findAll().getFirst();
         assertEquals(mockGoogleId, savedRes.getGoogleEventId());
     }
 
