@@ -3,6 +3,8 @@ package bookfronterab.service;
 import bookfronterab.dto.ReservationDto;
 import bookfronterab.dto.RoomDto;
 import bookfronterab.dto.UserDto;
+import bookfronterab.exception.RoomNotFoundException;
+import bookfronterab.exception.UserNotFoundException;
 import bookfronterab.model.Reservation;
 import bookfronterab.model.Room;
 import bookfronterab.model.User;
@@ -123,10 +125,10 @@ public class ReservationService {
         validateReservationRequest(req);
 
         Room room = roomRepo.findByIdWithLock(req.roomId())
-                .orElseThrow(() -> new IllegalArgumentException("Sala no encontrada: " + req.roomId()));
+                .orElseThrow(() -> new RoomNotFoundException("Sala no encontrada: " + req.roomId()));
 
         User other = userRepo.findByEmail(othersEmail)
-                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + sanitizedEmail));
+                .orElseThrow(() -> new UserNotFoundException("Usuario no encontrado: " + sanitizedEmail));
 
         //  Validar disponibilidad
         checkAvailability(req.roomId(), req.startAt(), req.endAt());
