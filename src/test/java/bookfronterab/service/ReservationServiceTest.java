@@ -1,6 +1,7 @@
 package bookfronterab.service;
 
 import bookfronterab.dto.ReservationDto;
+import bookfronterab.exception.UserNotFoundException;
 import bookfronterab.model.Reservation;
 import bookfronterab.model.Room;
 import bookfronterab.model.User;
@@ -30,7 +31,6 @@ import java.time.DayOfWeek;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAdjusters;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -282,7 +282,7 @@ class ReservationServiceTest {
 
         // Verificar
         verify(googleCalendarService).createEventForReservation(any(Reservation.class), anyString());
-        Reservation savedRes = reservationRepository.findAll().get(0);
+        Reservation savedRes = reservationRepository.findAll().getFirst();
         assertEquals(mockGoogleId, savedRes.getGoogleEventId());
     }
 
@@ -332,7 +332,7 @@ class ReservationServiceTest {
         ReservationDto.CreateRequest request = createValidRequest(testRoom.getId(), start, end, false);
         String emailAdmin = adminUser.getEmail();
 
-        assertThrows(IllegalArgumentException.class, () -> 
+        assertThrows(UserNotFoundException.class, () ->
                 reservationService.createOnBehalf(emailAdmin, "other@notfound.cl", request));
     }
 
@@ -521,15 +521,15 @@ class ReservationServiceTest {
     @DisplayName("createOnBehalf debería fallar si el usuario no existe")
     void createOnBehalf_ShouldFail_WhenUserDoesNotExist(){
         User user = new User(null,"admin@example.com","root",UserRole.ADMIN,ZonedDateTime.now().toOffsetDateTime(),null,null,null);
-        Room room = new Room(null,"test",4,new ArrayList<String>(),1,"");
+        Room room =Room.builder().name("Test").capacity(10).floor(1).build();
         userRepository.save(user);
         roomRepository.save(room);
         ZonedDateTime zdt = nextMonday.withHour(18);
-        ReservationDto.CreateRequest req = new ReservationDto.CreateRequest(1L,zdt,zdt.plusHours(1),false);
+        ReservationDto.CreateRequest req = new ReservationDto.CreateRequest(room.getId(),zdt,zdt.plusHours(1),false);
 
         String userEmail = user.getEmail();
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(UserNotFoundException.class, () ->
                 reservationService.createOnBehalf(userEmail, "john.doe@example.com", req)
         );
     }
