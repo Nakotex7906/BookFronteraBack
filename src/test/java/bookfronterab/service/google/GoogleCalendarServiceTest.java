@@ -26,12 +26,12 @@ class GoogleCalendarServiceTest {
     @InjectMocks
     private GoogleCalendarService service;
 
-    private final String ACCESS_TOKEN = "dummy-token";
+    private final String accessToken = "dummy-token";
 
     @Test
     @DisplayName("getCalendarClient debe devolver un cliente configurado")
     void getCalendarClient_ShouldReturnClient() {
-        Calendar client = service.getCalendarClient(ACCESS_TOKEN);
+        Calendar client = service.getCalendarClient(accessToken);
         assertNotNull(client);
         assertEquals("BookFrontera Calendar", client.getApplicationName());
     }
@@ -58,7 +58,7 @@ class GoogleCalendarServiceTest {
                     when(mock.build()).thenReturn(calendarMock);
                 })) {
 
-            String eventId = service.createEventForReservation(res, ACCESS_TOKEN);
+            String eventId = service.createEventForReservation(res, accessToken);
 
             assertEquals("generated-google-id", eventId);
             verify(insertMock).execute();
@@ -67,10 +67,9 @@ class GoogleCalendarServiceTest {
 
     @Test
     @DisplayName("deleteEvent debe hacer return inmediato si el ID es nulo")
-    void deleteEvent_ShouldReturnEarly_WhenIdNull() throws IOException {
-        service.deleteEvent(null, ACCESS_TOKEN);
-        service.deleteEvent("", ACCESS_TOKEN);
-        // Si no lanza excepción y corre, pasó el test.
+    void deleteEvent_ShouldReturnEarly_WhenIdNull() {
+        assertDoesNotThrow(()->service.deleteEvent(null, accessToken));
+        assertDoesNotThrow(()->service.deleteEvent("", accessToken));
     }
 
     @Test
@@ -91,7 +90,7 @@ class GoogleCalendarServiceTest {
                     when(mock.build()).thenReturn(calendarMock);
                 })) {
 
-            service.deleteEvent("evt-123", ACCESS_TOKEN);
+            service.deleteEvent("evt-123", accessToken);
 
             // Verificamos que se llamó al método execute()
             verify(deleteMock).execute();
@@ -116,7 +115,7 @@ class GoogleCalendarServiceTest {
                     when(mock.build()).thenReturn(calendarMock);
                 })) {
 
-            assertDoesNotThrow(() -> service.deleteEvent("evt-id", ACCESS_TOKEN));
+            assertDoesNotThrow(() -> service.deleteEvent("evt-id", accessToken));
         }
     }
 
@@ -151,7 +150,7 @@ class GoogleCalendarServiceTest {
                     when(mock.build()).thenReturn(calendarMock);
                 })) {
 
-            service.updateEvent(eventId, res, ACCESS_TOKEN);
+            service.updateEvent(eventId, res, accessToken);
 
             // Verificar que se llamó a update
             verify(updateMock).execute();
@@ -162,9 +161,8 @@ class GoogleCalendarServiceTest {
 
     @Test
     @DisplayName("updateEvent debe ignorar si el ID es nulo")
-    void updateEvent_ShouldIgnore_WhenIdNull() throws IOException {
-        service.updateEvent(null, mockReservation(), ACCESS_TOKEN);
-        // No debe intentar construir el cliente ni llamar a google
+    void updateEvent_ShouldIgnore_WhenIdNull() {
+        assertDoesNotThrow(()->service.updateEvent(null, mockReservation(), accessToken));
     }
 
     // Helper
