@@ -552,6 +552,7 @@ class ReservationServiceTest {
         ReservationDto.CreateRequest modifyReq = new ReservationDto.CreateRequest(testRoom.getId(),nextMonday.plusHours(1),nextMonday.plusHours(2),false);
         reservationService.create(testUser.getEmail(),req);
         long reservationId = reservationService.getMyReservations(testUser.getEmail()).current().id();
-        assertThrows(SecurityException.class,()->reservationService.modify(reservationId, otherUser.getEmail(), modifyReq));
+        String otherEmail = otherUser.getEmail();
+        assertThrows(SecurityException.class,()->reservationService.modify(reservationId, otherEmail, modifyReq));
     }
 }
