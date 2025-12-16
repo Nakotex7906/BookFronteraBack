@@ -533,4 +533,25 @@ class ReservationServiceTest {
                 reservationService.createOnBehalf(userEmail, "john.doe@example.com", req)
         );
     }
+
+    @Test
+    @DisplayName("createOnBehalf() debería fallar si el correo del 'otro' está en blanco")
+    void createOnBehalf_ShouldFail_WhenOthersEmailIsBlank(){
+        ReservationDto.CreateRequest req = new ReservationDto.CreateRequest(testRoom.getId(),nextMonday,nextMonday.plusHours(1),false);
+
+        String userEmail = adminUser.getEmail();
+
+        assertThrows(IllegalArgumentException.class, () ->
+                reservationService.createOnBehalf(userEmail, " ", req)
+        );
+    }
+    @Test
+    @DisplayName("modify() debería lanzar SecurityException si no lo solicita el dueño o un admin")
+    void modify_shouldThrowSecurityException_WhenUserIsNotOwnerOrAdmin(){
+        ReservationDto.CreateRequest req = new ReservationDto.CreateRequest(testRoom.getId(),nextMonday,nextMonday.plusHours(1),false);
+        ReservationDto.CreateRequest modifyReq = new ReservationDto.CreateRequest(testRoom.getId(),nextMonday.plusHours(1),nextMonday.plusHours(2),false);
+        reservationService.create(testUser.getEmail(),req);
+        long reservationId = reservationService.getMyReservations(testUser.getEmail()).current().id();
+        assertThrows(SecurityException.class,()->reservationService.modify(reservationId, otherUser.getEmail(), modifyReq));
+    }
 }
