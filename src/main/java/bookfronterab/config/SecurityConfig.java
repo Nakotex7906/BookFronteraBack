@@ -37,11 +37,6 @@ public class SecurityConfig {
                 // 1. Configuración de CORS
                 .cors(cors -> cors.configurationSource(corsConfig()))
 
-                // 2. DESACTIVAR CSRF (Soluciona el error 403 Forbidden en POST/PUT)
-                // Al estar en dominios distintos (Vercel vs Render), las cookies de CSRF suelen fallar.
-                // En APIs REST modernas con OAuth2, es seguro desactivarlo si se maneja bien la sesión.
-                .csrf(AbstractHttpConfigurer::disable)
-
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
