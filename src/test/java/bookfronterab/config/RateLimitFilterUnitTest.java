@@ -103,6 +103,6 @@ class RateLimitFilterUnitTest {
         // 3. Verificación
         // Aquí verificamos que el servicio fue llamado EXACTAMENTE con la IP del cliente (eq)
         // La documentación recomienda usar 'eq()' explícitamente si queremos estar seguros del valor.
-        verify(rateLimitingService).resolveBucket(eq(clientIp));
+        verify(rateLimitingService).resolveBucket(clientIp);
     }
 }
