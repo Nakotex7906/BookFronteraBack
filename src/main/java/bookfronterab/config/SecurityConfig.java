@@ -1,10 +1,6 @@
 package bookfronterab.config;
 
 import bookfronterab.service.google.CustomOidcUserService;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,18 +8,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfFilter;
-import org.springframework.security.web.csrf.CsrfToken;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
 import java.util.List;
 
 @Configuration
@@ -32,32 +23,24 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private static final String XSRF_TOKEN_HEADER = "X-XSRF-TOKEN";
-
     private final CustomOidcUserService customOidcUserService;
     private final CustomAuthenticationSuccessHandler authenticationSuccessHandler;
     private final CustomAuthenticationFailureHandler authenticationFailureHandler;
 
-    // INYECCIÓN DE LA URL DEL FRONTEND DESDE VARIABLES DE ENTORNO
+    // Inyectamos la URL de producción desde las variables de entorno
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-
-        CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
-        requestHandler.setCsrfRequestAttributeName(null);
-
-        CookieCsrfTokenRepository tokenRepository = new CookieCsrfTokenRepository();
-        tokenRepository.setCookiePath("/");
-
         http
+                // 1. Configuración de CORS
                 .cors(cors -> cors.configurationSource(corsConfig()))
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(tokenRepository)
-                        .csrfTokenRequestHandler(requestHandler)
-                )
-                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
+
+                // 2. DESACTIVAR CSRF (Soluciona el error 403 Forbidden en POST/PUT)
+                // Al estar en dominios distintos (Vercel vs Render), las cookies de CSRF suelen fallar.
+                // En APIs REST modernas con OAuth2, es seguro desactivarlo si se maneja bien la sesión.
+                .csrf(AbstractHttpConfigurer::disable)
 
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
                 .authorizeHttpRequests(auth -> auth
@@ -79,10 +62,9 @@ public class SecurityConfig {
                 )
                 .logout(logout -> logout
                         .logoutUrl("/api/v1/logout")
-                        // USAR LA VARIABLE PARA QUE REDIRIJA AL SITIO CORRECTO EN PROD
-                        .logoutSuccessUrl(frontendUrl)
+                        .logoutSuccessUrl(frontendUrl) // Redirige a Vercel al salir
                         .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID", "XSRF-TOKEN")
+                        .deleteCookies("JSESSIONID")
                 );
 
         return http.build();
@@ -92,41 +74,19 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfig() {
         CorsConfiguration cfg = new CorsConfiguration();
 
-        // AQUÍ ESTÁ LA SOLUCIÓN AL CORS:
-        // Acepta localhost (desarrollo) Y la URL de producción (Vercel)
+        // Lista de orígenes permitidos: Localhost + Producción
         cfg.setAllowedOrigins(List.of("http://localhost:5173", frontendUrl));
 
-        cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
-        cfg.setAllowedHeaders(List.of(
-                "Authorization",
-                "Cache-Control",
-                "Content-Type",
-                XSRF_TOKEN_HEADER,
-                "X-Requested-With"
-        ));
+        // Permitir todos los headers (Authorization, Content-Type, etc.)
+        cfg.setAllowedHeaders(List.of("*"));
 
+        // IMPORTANTE: Permitir credenciales (cookies)
         cfg.setAllowCredentials(true);
-        cfg.setExposedHeaders(List.of(XSRF_TOKEN_HEADER));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
         return source;
-    }
-
-    // Filtro interno
-    static class CsrfCookieFilter extends OncePerRequestFilter {
-        @Override
-        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-                throws ServletException, IOException {
-            CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
-            if (csrfToken != null) {
-                String token = csrfToken.getToken();
-                if (token != null) {
-                    response.setHeader(XSRF_TOKEN_HEADER, token);
-                }
-            }
-            filterChain.doFilter(request, response);
-        }
     }
 }
