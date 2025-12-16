@@ -137,6 +137,7 @@ class ReservationRepositoryTest {
 
         // Creamos 2 reservas del mismo usuario
         Reservation r1 = persistReservation(start, end);
+        Reservation r2 = persistReservation(start.plusDays(1), end.plusDays(1));
 
         // Rango de búsqueda: toda la semana
         ZonedDateTime weekStart = baseTime.minusDays(1);
