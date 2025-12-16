@@ -69,6 +69,7 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/test/validation")
         public void testValidation(@RequestBody @Valid TestDto dto) {
+            //este method solo existe para pasarle una petición no válida
         }
     }
 
